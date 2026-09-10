@@ -339,6 +339,7 @@ tr.detail-row td{background:#fbf9f3;padding:0}
             <th onclick="bdSort('providers')">Active Providers</th>
             <th onclick="bdSort('caseload')">Caseload / Capacity</th>
             <th onclick="bdSort('util')">Utilization</th>
+            <th onclick="bdSort('productive')"><span class="term" title="Providers carrying 65%+ of their personal caseload target (18 for FT, 10 for PT) &#8212; Thrive's established productivity benchmark. A county can show room on paper (Utilization below capacity) while its actual providers are already hitting this bar, which is a different, more useful signal for whether new referrals are urgently needed there.">Productive</span></th>
             <th>Signals</th>
             <th onclick="bdSort('opp')">Opportunity</th>
           </tr></thead>
@@ -830,6 +831,19 @@ function resolveProviders(){
 // ══════════════════════════════════════════════════════════════════
 // AGGREGATION — one row per county
 // ══════════════════════════════════════════════════════════════════
+// Thrive's established productivity target: 65% of personal caseload target
+// (same benchmark used in the Community Recovery Support productivity
+// analysis). Applied per-provider here so BD can see whether a county's
+// *individual* providers are already carrying their load, separately from
+// whether the county as a whole has room on paper -- a county can clear
+// Utilization thresholds while every provider in it is already productive,
+// which means there's less urgency for new referrals there than the
+// capacity number alone would suggest.
+const PRODUCTIVE_TARGET=0.65;
+function isProductive(p){
+  const tg = p.tp==='FT' ? DTGT.caseloadFT : DTGT.caseloadPT;
+  return tg>0 && (p.caseload/tg) >= PRODUCTIVE_TARGET;
+}
 function buildCountyRows(providers){
   const byCounty={};
   providers.forEach(p=>{
@@ -847,13 +861,18 @@ function buildCountyRows(providers){
       classifyNote(p.notes).forEach(h=>{ signalCounts[h.key] = (signalCounts[h.key]||0)+1; });
     });
     const coverageGap = row.providers.length <= 1;
+    const productive = row.providers.filter(isProductive).length;
     // Opportunity tier: transparent thresholds, not a hidden formula weight —
     // "High" if any of the three risk indicators fire at all, "Watch" if
     // utilization is elevated but nothing else has tripped yet, else "Stable".
+    // Deliberately NOT folded into this tier -- productivity is a provider-level
+    // read, opportunity is a county-level one, and collapsing them into a single
+    // score would hide the "room on paper, but already productive" case this
+    // column exists to surface. Weigh both when deciding where to focus.
     let opp='Stable';
     if(signalCounts.needs>0 || coverageGap || util>=1) opp='High';
     else if(util>=0.85 || signalCounts.near>0) opp='Watch';
-    return { ...row, util, signalCounts, coverageGap, opp };
+    return { ...row, util, signalCounts, coverageGap, productive, opp };
   });
 }
 
@@ -870,12 +889,19 @@ function isOpenLead(l){ return l.status!=='Closed - Won' && l.status!=='Closed -
 function buildPriorities(){
   const today=new Date();
   const byCounty={};
-  ALL_COUNTY_ROWS.forEach(r=>{ byCounty[r.county]={ county:r.county, opp:r.opp, util:r.util, reasons:[] }; });
-  LEADS.forEach(l=>{ const c=(l.county||'Unspecified').trim()||'Unspecified'; if(!byCounty[c]) byCounty[c]={ county:c, opp:null, util:null, reasons:[] }; });
+  ALL_COUNTY_ROWS.forEach(r=>{ byCounty[r.county]={ county:r.county, opp:r.opp, util:r.util, productive:r.productive, providerCount:r.providers.length, reasons:[] }; });
+  LEADS.forEach(l=>{ const c=(l.county||'Unspecified').trim()||'Unspecified'; if(!byCounty[c]) byCounty[c]={ county:c, opp:null, util:null, productive:0, providerCount:0, reasons:[] }; });
 
   Object.values(byCounty).forEach(row=>{
     if(row.opp==='High') row.reasons.push({text:'High caseload opportunity — '+fmtPct(row.util)+' utilization or thin coverage', cls:'bad'});
     else if(row.opp==='Watch') row.reasons.push({text:'Approaching capacity — '+fmtPct(row.util)+' utilization', cls:'warn'});
+    // Room on paper doesn't necessarily mean referrals are urgent -- if most
+    // of the county's own providers are already at 65%+ of their personal
+    // target, that's a real counter-signal worth seeing right alongside the
+    // opportunity flag, not just buried in County Detail.
+    if((row.opp==='High' || row.opp==='Watch') && row.providerCount>0 && row.productive/row.providerCount>=0.5){
+      row.reasons.push({text:row.productive+'/'+row.providerCount+' providers already at 65%+ of target — may not be urgent', cls:'neutral'});
+    }
 
     const countyLeads=LEADS.filter(l=>((l.county||'Unspecified').trim()||'Unspecified')===row.county);
     const openLeads=countyLeads.filter(isOpenLead);
@@ -960,12 +986,14 @@ function renderKPIs(rows, all){
   const thinCoverage=rows.filter(r=>r.coverageGap).length;
   const needsPeers=rows.reduce((s,r)=>s+(r.signalCounts.needs||0),0);
   const highOpp=rows.filter(r=>r.opp==='High').length;
+  const totalProductive=rows.reduce((s,r)=>s+r.productive,0);
   const kpi=(lbl,val,sub,cls)=>`<div class="kpi ${cls||''}"><div class="lbl">${lbl}</div><div class="val">${val}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
   document.getElementById('kpiRow').innerHTML =
     kpi('Active Providers', totalProviders) +
     kpi('Counties Covered', rows.length) +
     kpi('Total Caseload', totalCaseload.toLocaleString(), `of ${totalCapacity.toLocaleString()} capacity`) +
     kpi('Overall Utilization', fmtPct(overallUtil), null, overallUtil>=1?'bad':overallUtil>=0.85?'warn':'good') +
+    kpi('Productive Providers', totalProductive+' / '+totalProviders, fmtPct(totalProviders?totalProductive/totalProviders:0)+' at 65%+ of target') +
     kpi('Thin-Coverage Counties', thinCoverage, '≤1 active provider', thinCoverage?'warn':'good') +
     kpi('High-Opportunity Counties', highOpp, needsPeers + ' "needs peers" signal' + (needsPeers===1?'':'s'), highOpp?'bad':'good');
 }
@@ -1013,35 +1041,39 @@ function renderTable(rows){
     if(key==='providers') return (a.providers.length-b.providers.length)*dir;
     if(key==='caseload') return (a.caseload-b.caseload)*dir;
     if(key==='util') return (a.util-b.util)*dir;
+    if(key==='productive') return (a.productive-b.productive)*dir;
     if(key==='opp'){ const rank={High:0,Watch:1,Stable:2}; return (rank[a.opp]-rank[b.opp])*dir; }
     return 0;
   });
   const body=document.getElementById('countyTableBody');
-  if(!sorted.length){ body.innerHTML='<tr><td colspan="6"><div class="empty-state">No counties match these filters.</div></td></tr>'; return; }
+  if(!sorted.length){ body.innerHTML='<tr><td colspan="7"><div class="empty-state">No counties match these filters.</div></td></tr>'; return; }
   body.innerHTML = sorted.map((row,idx)=>{
     const detailId='det-'+idx;
     const provRows=row.providers.map(p=>{
       const hits=classifyNote(p.notes);
       const chips=hits.map(h=>`<span class="signal-chip ${h.cls}" title="${xe(h.trigger)}">${h.label}</span>`).join('') || '';
       const tg=p.tp==='FT'?DTGT.caseloadFT:DTGT.caseloadPT;
+      const prod=isProductive(p);
       return `<div class="prov-row">
         <div><div class="nm">${xe(p.name)}</div><div class="sub">${xe(p.city||'—')} · ${xe(p.mgrFull)}</div></div>
         <div>${xe(p.program||p.prog||'—')}</div>
         <div>${xe(p.tp||'—')}</div>
-        <div>${p.caseload} / ${tg}</div>
+        <div>${p.caseload} / ${tg}${prod?' <span class="bdg good" title="65%+ of caseload target">Productive</span>':''}</div>
         <div>${chips}${p.notes?`<div class="sub" style="margin-top:3px">${xe(p.notes)}</div>`:''}</div>
       </div>`;
     }).join('');
+    const prodPct = row.providers.length ? row.productive/row.providers.length : 0;
     return `
       <tr class="county-row" onclick="bdToggleDetail('${detailId}')">
         <td><b>${xe(row.county)}</b></td>
         <td>${row.providers.length}</td>
         <td>${row.caseload} / ${row.capacity}</td>
         <td><span class="bdg ${row.util>=1?'bad':row.util>=0.85?'warn':'good'}">${fmtPct(row.util)}</span></td>
+        <td><span class="bdg neutral">${row.productive}/${row.providers.length} (${fmtPct(prodPct)})</span></td>
         <td>${signalChips(row)}</td>
         <td><span class="bdg opp-${row.opp}">${row.opp}</span></td>
       </tr>
-      <tr class="detail-row" id="${detailId}" style="display:none"><td colspan="6"><div class="detail-inner">${provRows}</div></td></tr>
+      <tr class="detail-row" id="${detailId}" style="display:none"><td colspan="7"><div class="detail-inner">${provRows}</div></td></tr>
     `;
   }).join('');
 }
