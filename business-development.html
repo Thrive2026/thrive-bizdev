@@ -289,7 +289,6 @@ tr.detail-row td{background:#fbf9f3;padding:0}
   <div class="page-hd">
     <div class="eyebrow">Caseload Capacity &middot; Leads &middot; Referral Volume</div>
     <h1>Business Development Dashboard</h1>
-    <p class="lede">Where current staff are stretched thin, what BD leads are in motion, and how referral volume is trending — by county — so the team knows where to put energy this week. Caseload/coverage data is read live from the shared roster; leads and referral volume are entered and tracked right here.</p>
   </div>
 
   <div class="tab-bar">
@@ -1291,13 +1290,21 @@ function renderLeadsKPIs(){
     kpi('Overdue Follow-ups', overdue, null, overdue?'bad':'good') +
     kpi('Closed — Won (all-time)', won, null, won?'good':'');
 }
-function referralYtdForOrg(org){
-  const target=(org||'').trim().toLowerCase();
-  if(!target) return 0;
-  const hit=REFERRALS.find(r=>(r.org||'').trim().toLowerCase()===target);
-  if(!hit) return 0;
-  return Object.values(hit.counts||{}).reduce((s,v)=>s+Number(v||0),0);
+function referralYtdSourceForOrg(org){
+  const target=(org||'').trim();
+  if(!target) return {value:0, source:null};
+  // Manual Referral Volume log (org-name matched loosely, same as Referral
+  // Insights uses) comes first -- it's what the BD team is actively logging.
+  const hit=REFERRALS.find(r=>orgNamesMatch(r.org, target));
+  const manualYtd = hit ? Object.values(hit.counts||{}).reduce((s,v)=>s+Number(v||0),0) : 0;
+  if(manualYtd) return {value:manualYtd, source:'manual'};
+  // Nothing logged manually yet -- fall back to Klip's actual 2026
+  // (partial-year) new-client count for this source, if it's tracked there.
+  const klip=KLIP_INSIGHTS.find(k=>orgNamesMatch(k.org, target));
+  if(klip && klip.y2026) return {value:klip.y2026, source:'klip'};
+  return {value:0, source:null};
 }
+function referralYtdForOrg(org){ return referralYtdSourceForOrg(org).value; }
 function leadDetailHtml(l){
   const row=(label,val)=> val ? `<div><b>${xe(label)}:</b> ${xe(val)}</div>` : '';
   const contact=[l.contactName, l.contactPhone, l.contactEmail].filter(Boolean).join(' · ');
@@ -1393,7 +1400,8 @@ function renderLeadsTable(){
   body.innerHTML=sorted.map((l,idx)=>{
     const overdue = !!(l.nextFollowUp && isOpenLead(l) && new Date(l.nextFollowUp)<today);
     const stale = isStaleLead(l);
-    const ytd=referralYtdForOrg(l.org);
+    const ytdInfo=referralYtdSourceForOrg(l.org);
+    const ytd=ytdInfo.value;
     const detailId='lddet-'+idx;
     const open=EXPANDED_LEADS.has(l.id);
     return `<tr class="county-row" onclick="bdToggleLeadDetail('${l.id}','${detailId}')">
@@ -1402,7 +1410,7 @@ function renderLeadsTable(){
       <td>${xe(l.county||'—')}</td>
       <td><span class="bdg ${leadStatusCls(l.status)}">${xe(l.status||'New')}</span></td>
       <td>${xe(l.owner||'—')}</td>
-      <td>${ytd}</td>
+      <td>${ytd}${ytdInfo.source==='klip'?' <span class="term" title="No entries logged yet on Referral Volume for this org -- this is Klip\'s actual 2026 (partial-year) new-client count instead." style="color:var(--muted);font-size:10px">(Klip)</span>':''}</td>
       <td class="${overdue?'overdue':''}">${xe(l.nextFollowUp||'—')}${overdue?' ⚠':''}</td>
       <td class="tbl-actions" onclick="event.stopPropagation()"><button onclick="bdEditLead('${l.id}')">Edit</button><button onclick="bdDeleteLead('${l.id}')">Delete</button></td>
     </tr>
