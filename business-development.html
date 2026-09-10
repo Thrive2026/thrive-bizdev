@@ -283,6 +283,7 @@ tr.detail-row td{background:#fbf9f3;padding:0}
   <div class="brand"><span class="mark">Thrive</span><span class="sub">Business Development</span></div>
   <div class="right">
     <span class="data-badge" id="dataAsOf">Loading…</span>
+    <span class="data-badge" id="revenueAsOf">Loading…</span>
     <button class="bd-signout-btn" onclick="bdHandleSignOut()">Sign Out</button>
   </div>
 </header>
@@ -892,6 +893,22 @@ function buildCountyRows(providers){
     row.caseload += p.caseload;
     row.capacity += (p.tp==='FT' ? DTGT.caseloadFT : DTGT.caseloadPT);
   });
+  // Zero-coverage counties: a county can have an active BD lead with NO Thrive
+  // staff there at all -- that's arguably the clearest staffing-need signal
+  // there is, and the providers-only loop above would never create a row for
+  // it, so it would silently disappear from County Detail instead of showing
+  // up as an obvious "0 providers" line. Seed one from every tracked Lead's
+  // county so it renders here (added 9/10/26 per Brandon).
+  // CAVEAT, flagged rather than silently assumed solved: this only catches
+  // counties with a tracked Lead. Klip's 282 referral sources (Referral
+  // Insights tab) carry no county/address field at all, so a county that's
+  // already sending real referral volume but has no Lead logged and no staff
+  // is still invisible here -- there's no data to attribute it to a county
+  // with yet.
+  LEADS.forEach(l=>{
+    const key=(l.county||'').trim()||'Unspecified';
+    if(!byCounty[key]) byCounty[key]={ county:key, providers:[], caseload:0, capacity:0 };
+  });
   return Object.values(byCounty).map(row=>{
     const util = row.capacity>0 ? row.caseload/row.capacity : 0;
     const signalCounts={needs:0,near:0,avail:0,pause:0};
@@ -900,6 +917,7 @@ function buildCountyRows(providers){
     });
     const coverageGap = row.providers.length <= 1;
     const productive = row.providers.filter(isProductive).length;
+    const revenueDataCount = row.providers.filter(p=>p.revenue!=null).length;
     // Opportunity tier: transparent thresholds, not a hidden formula weight —
     // "High" if any of the three risk indicators fire at all, "Watch" if
     // utilization is elevated but nothing else has tripped yet, else "Stable".
@@ -910,7 +928,7 @@ function buildCountyRows(providers){
     let opp='Stable';
     if(signalCounts.needs>0 || coverageGap || util>=1) opp='High';
     else if(util>=0.85 || signalCounts.near>0) opp='Watch';
-    return { ...row, util, signalCounts, coverageGap, productive, opp };
+    return { ...row, util, signalCounts, coverageGap, productive, revenueDataCount, opp };
   });
 }
 
@@ -1026,13 +1044,22 @@ function renderKPIs(rows, all){
   const needsPeers=rows.reduce((s,r)=>s+(r.signalCounts.needs||0),0);
   const highOpp=rows.filter(r=>r.opp==='High').length;
   const totalProductive=rows.reduce((s,r)=>s+r.productive,0);
+  const totalRevenueData=rows.reduce((s,r)=>s+r.revenueDataCount,0);
+  // rows now includes zero-provider counties seeded from Leads (see
+  // buildCountyRows) -- those aren't "covered," they're the opposite, so
+  // split them into their own count rather than inflating this one.
+  const coveredRows=rows.filter(r=>r.providers.length>0);
+  const zeroProviderRows=rows.filter(r=>r.providers.length===0);
   const kpi=(lbl,val,sub,cls)=>`<div class="kpi ${cls||''}"><div class="lbl">${lbl}</div><div class="val">${val}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
   document.getElementById('kpiRow').innerHTML =
     kpi('Active Providers', totalProviders) +
-    kpi('Counties Covered', rows.length) +
+    kpi('Counties Covered', coveredRows.length) +
+    kpi('Zero-Coverage Counties', zeroProviderRows.length, zeroProviderRows.length?'tracked lead, no provider':'none — every lead county is staffed', zeroProviderRows.length?'bad':'good') +
     kpi('Total Caseload', totalCaseload.toLocaleString(), `of ${totalCapacity.toLocaleString()} capacity`) +
     kpi('Overall Utilization', fmtPct(overallUtil), null, overallUtil>=1?'bad':overallUtil>=0.85?'warn':'good') +
-    kpi('Productive Providers', totalProductive+' / '+totalProviders, fmtPct(totalProviders?totalProductive/totalProviders:0)+' at 100%+ Progress to Goal') +
+    kpi('Productive Providers', totalRevenueData ? (totalProductive+' / '+totalRevenueData) : '— / '+totalProviders,
+        totalRevenueData ? fmtPct(totalProductive/totalRevenueData)+' at 100%+ Progress to Goal ('+(totalProviders-totalRevenueData)+' no data)' : 'no revenue data imported yet',
+        totalRevenueData ? '' : 'warn') +
     kpi('Thin-Coverage Counties', thinCoverage, '≤1 active provider', thinCoverage?'warn':'good') +
     kpi('High-Opportunity Counties', highOpp, needsPeers + ' "needs peers" signal' + (needsPeers===1?'':'s'), highOpp?'bad':'good');
 }
@@ -1103,18 +1130,35 @@ function renderTable(rows){
         <div>${chips}${p.notes?`<div class="sub" style="margin-top:3px">${xe(p.notes)}</div>`:''}</div>
       </div>`;
     }).join('');
-    const prodPct = row.providers.length ? row.productive/row.providers.length : 0;
+    const noProviders = row.providers.length===0;
+    // capacity===0 means no providers to have utilization against -- "0%" with
+    // a green "good" badge would read as "healthy," which is backwards for a
+    // county with zero coverage. Same logic for Productive: 0/0 isn't "0%
+    // productive," it's "nobody to measure." And even with providers present,
+    // 0 with revenue data for none of them isn't "0% productive," it's "no
+    // billing data yet" -- see the revenueAsOf diagnostic badge up top.
+    const utilCell = noProviders
+      ? `<span class="bdg bad" title="Lead tracked here but zero active Thrive providers">No coverage</span>`
+      : `<span class="bdg ${row.util>=1?'bad':row.util>=0.85?'warn':'good'}">${fmtPct(row.util)}</span>`;
+    const prodCell = noProviders
+      ? `<span class="bdg" style="background:#eee;color:#888">—</span>`
+      : row.revenueDataCount===0
+        ? `<span class="bdg" style="background:#eee;color:#888" title="No provider in this county has billing/revenue data imported for the latest period yet">No billing data</span>`
+        : `<span class="bdg neutral">${row.productive}/${row.revenueDataCount} (${fmtPct(row.productive/row.revenueDataCount)})${row.revenueDataCount<row.providers.length?' <span style="opacity:.7">·'+(row.providers.length-row.revenueDataCount)+' no data</span>':''}</span>`;
+    const signalsCell = noProviders
+      ? `<span class="signal-chip signal-needs" title="County has a tracked Lead but zero active providers">No provider — Lead only</span>`
+      : signalChips(row);
     return `
       <tr class="county-row" onclick="bdToggleDetail('${detailId}')">
         <td><b>${xe(row.county)}</b></td>
         <td>${row.providers.length}</td>
         <td>${row.caseload} / ${row.capacity}</td>
-        <td><span class="bdg ${row.util>=1?'bad':row.util>=0.85?'warn':'good'}">${fmtPct(row.util)}</span></td>
-        <td><span class="bdg neutral">${row.productive}/${row.providers.length} (${fmtPct(prodPct)})</span></td>
-        <td>${signalChips(row)}</td>
+        <td>${utilCell}</td>
+        <td>${prodCell}</td>
+        <td>${signalsCell}</td>
         <td><span class="bdg opp-${row.opp}">${row.opp}</span></td>
       </tr>
-      <tr class="detail-row" id="${detailId}" style="display:none"><td colspan="7"><div class="detail-inner">${provRows}</div></td></tr>
+      <tr class="detail-row" id="${detailId}" style="display:none"><td colspan="7"><div class="detail-inner">${noProviders?'<div class="empty-state">No active providers tracked in this county — the only Thrive presence here is a BD lead.</div>':provRows}</div></td></tr>
     `;
   }).join('');
 }
@@ -1158,6 +1202,25 @@ async function renderAll(){
     badge.textContent='Caseload as of '+dt.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
   } else {
     badge.textContent='No caseload data imported yet';
+  }
+
+  // Diagnostic badge for the Productive/Progress-to-Goal signal -- added
+  // 9/10/26 because "0% productive in every county" is ambiguous on its own:
+  // it could mean nobody's hit goal (real), or it could mean revenue simply
+  // hasn't landed in the shared 'pd' key for any provider yet (data gap, not
+  // a performance signal). This makes the difference visible without opening
+  // dev tools.
+  const rp = all.length ? all[0].rp : null;
+  const withRevenue = all.filter(p=>p.revenue!=null).length;
+  const revBadge=document.getElementById('revenueAsOf');
+  if(!rp){
+    revBadge.textContent='No revenue data imported yet — Productive will read 0 until Data & Staff Hub imports it';
+  } else if(!withRevenue){
+    const dt=new Date(rp+'T00:00:00');
+    revBadge.textContent='Revenue period found ('+dt.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})+') but 0 providers matched — check staff ID format';
+  } else {
+    const dt=new Date(rp+'T00:00:00');
+    revBadge.textContent='Revenue as of '+dt.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})+' ('+withRevenue+'/'+all.length+' providers)';
   }
 }
 
