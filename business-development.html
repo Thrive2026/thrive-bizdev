@@ -30,8 +30,10 @@
                         Linkage/Provider Match all share)
     - 'pm_overrides'  (per-provider city/county/zip/program/availability edits,
                         same key Provider Match reads/writes)
-    - 'pd'            (per-pay-period caseload numbers, same key every hub's
-                        caseload column reads)
+    - 'pd'            (per-pay-period caseload AND revenue numbers, same key
+                        every hub's caseload column reads -- as of 9/10/26 this
+                        hub also reads revenue off it, to compute Progress to
+                        Goal for the Productive signal, see isProductive())
 
   WHAT THIS NOW WRITES (new as of the Leads / Referral Volume build — this
   tool is no longer read-only like the original version):
@@ -294,7 +296,12 @@ tr.detail-row td{background:#fbf9f3;padding:0}
   <div class="tab-bar">
     <button class="tab-btn active" id="tabBtnOverview" onclick="bdShowTab('overview')">Overview</button>
     <button class="tab-btn" id="tabBtnLeads" onclick="bdShowTab('leads')">Leads</button>
-    <button class="tab-btn" id="tabBtnReferrals" onclick="bdShowTab('referrals')">Referral Volume</button>
+    <!-- Referral Volume hidden per Brandon 9/10/26 -- manual entry/CSV import wasn't
+         being used and the CSV importer needs real UX work before it's worth having
+         around. Tab markup, data load, and Leads'/This Week's Focus's referral-YTD
+         lookups (which fall back to Klip data when a REFERRALS row is missing) are
+         all left intact below -- re-enabling is just un-hiding this button. -->
+    <button class="tab-btn" id="tabBtnReferrals" onclick="bdShowTab('referrals')" style="display:none">Referral Volume</button>
     <button class="tab-btn" id="tabBtnInsights" onclick="bdShowTab('insights')">Referral Insights</button>
     <button class="tab-btn" id="tabBtnDeliverables" onclick="bdShowTab('deliverables')">Deliverables</button>
   </div>
@@ -339,7 +346,7 @@ tr.detail-row td{background:#fbf9f3;padding:0}
             <th onclick="bdSort('providers')">Active Providers</th>
             <th onclick="bdSort('caseload')">Caseload / Capacity</th>
             <th onclick="bdSort('util')">Utilization</th>
-            <th onclick="bdSort('productive')"><span class="term" title="Providers carrying 65%+ of their personal caseload target (18 for FT, 10 for PT) &#8212; Thrive's established productivity benchmark. A county can show room on paper (Utilization below capacity) while its actual providers are already hitting this bar, which is a different, more useful signal for whether new referrals are urgently needed there.">Productive</span></th>
+            <th onclick="bdSort('productive')"><span class="term" title="Providers at 100%+ Progress to Goal &#8212; billing at or above their biweekly revenue goal ($3,638 FT / $1,819 PT), same figure Data &amp; Staff Hub tracks. A county can show caseload room on paper (Utilization below capacity) while its actual providers are already fulfilling their billable requirements, which is a different, more useful signal for whether new referrals are urgently needed there.">Productive</span></th>
             <th>Signals</th>
             <th onclick="bdSort('opp')">Opportunity</th>
           </tr></thead>
@@ -681,6 +688,12 @@ const MGR={
   David:{full:'David Begly',dir:'Brandon',prog:'Crisis Center',c:'#DB2777'},
 };
 const DTGT={caseloadFT:18,caseloadPT:10};
+// Biweekly billing goal per FT/PT, same figures Data & Staff Hub's "Progress to
+// Goal" column is built from (26/13 hrs per wk x $69.96/hr x 2 weeks). Kept as a
+// literal copy here rather than a shared import, matching how every other
+// cross-hub constant in this ecosystem is duplicated per file -- if Thrive's
+// billing rate or weekly hour targets change, update both files.
+const PRS_GOAL_BIWEEKLY_FT=3638, PRS_GOAL_BIWEEKLY_PT=1819;
 
 // ══════════════════════════════════════════════════════════════════
 // GEOCODING — same city/county centroid fallback chain Provider Match uses,
@@ -797,12 +810,21 @@ let editingLeadId=null;
 let editingReferralId=null;
 let map=null, markerLayer=null;
 
-function periodHasCaseload(pd){
+function periodHasField(pd,field){
   if(!pd) return false;
-  return Object.values(pd).some(v=>{ if(!v) return false; const x=v.caseload; return typeof x==='number' && x>0; });
+  return Object.values(pd).some(v=>{ if(!v) return false; const x=v[field]; return typeof x==='number' && x>0; });
 }
+function periodHasCaseload(pd){ return periodHasField(pd,'caseload'); }
 function latestCaseloadPeriod(){
   const ps=Object.keys(PD||{}).filter(p=>periodHasCaseload(PD[p])).sort();
+  return ps.length ? ps[ps.length-1] : null;
+}
+// Revenue (the input to Progress to Goal, see isProductive() below) is imported
+// on its own schedule in Data & Staff Hub, same as every other productivity
+// metric -- it isn't guaranteed to land in the same period tab as caseload, so
+// it gets its own latest-period lookup rather than assuming they match.
+function latestRevenuePeriod(){
+  const ps=Object.keys(PD||{}).filter(p=>periodHasField(PD[p],'revenue')).sort();
   return ps.length ? ps[ps.length-1] : null;
 }
 
@@ -810,6 +832,8 @@ function resolveProviders(){
   const active=(STAFF||[]).filter(s=>s.status==='Active' || !s.status);
   const cp=latestCaseloadPeriod();
   const PDATA=cp ? (PD[cp]||{}) : {};
+  const rp=latestRevenuePeriod();
+  const RDATA=rp ? (PD[rp]||{}) : {};
   return active.map(s=>{
     const seed=PROVIDER_MAP_DATA[s.id]||{};
     const ov=PMOV[s.id]||{};
@@ -819,11 +843,13 @@ function resolveProviders(){
     if(s.county) md.county=s.county;
     if(s.zip) md.zip=s.zip;
     const liveCaseload=(PDATA[s.id] && PDATA[s.id].caseload) || 0;
+    const revRec=RDATA[s.id];
+    const liveRevenue=(revRec && typeof revRec.revenue==='number') ? revRec.revenue : null;
     return {
       id:s.id, name:(s.fn+' '+s.ln), mgr:s.mgr, mgrFull:(MGR[s.mgr]&&MGR[s.mgr].full)||s.mgr||'—',
       prog:(MGR[s.mgr]&&MGR[s.mgr].prog)||'', tp:s.tp,
       program:md.program||'', city:md.city||'', county:(md.county||'').trim()||'Unspecified', zip:md.zip||'',
-      notes:md.notes||s.nt||'', caseload:liveCaseload, cp,
+      notes:md.notes||s.nt||'', caseload:liveCaseload, cp, revenue:liveRevenue, rp,
     };
   });
 }
@@ -831,18 +857,30 @@ function resolveProviders(){
 // ══════════════════════════════════════════════════════════════════
 // AGGREGATION — one row per county
 // ══════════════════════════════════════════════════════════════════
-// Thrive's established productivity target: 65% of personal caseload target
-// (same benchmark used in the Community Recovery Support productivity
-// analysis). Applied per-provider here so BD can see whether a county's
-// *individual* providers are already carrying their load, separately from
-// whether the county as a whole has room on paper -- a county can clear
-// Utilization thresholds while every provider in it is already productive,
-// which means there's less urgency for new referrals there than the
-// capacity number alone would suggest.
-const PRODUCTIVE_TARGET=0.65;
+// "Productive" = fulfilling billable requirements, i.e. Progress to Goal >=100%
+// -- revenue billed against the biweekly PRS goal ($3,638 FT / $1,819 PT), the
+// exact figure Data & Staff Hub's "Progress to Goal" column shows. This is
+// deliberately NOT caseload-vs-target: a provider can have open caseload slots
+// (room on paper) while already billing at or above their goal, and that's a
+// real counter-signal against urgency, not a contradiction -- caseload
+// availability and billing productivity are two different things, and this
+// column exists to surface the second one next to the first. (An earlier
+// version of this used caseload/target>=65% as a proxy for productivity; that
+// conflated "has room" with "is behind," which is exactly backwards for BD's
+// purposes -- redefined 9/10/26 per Brandon.)
+// A provider with no revenue import yet for the latest period reads as NOT
+// productive (conservative) rather than being silently excluded -- there's no
+// "unknown" state surfaced in this boolean, so an unimported period will look
+// like underperformance until Data & Staff Hub's revenue data catches up.
+const PROGRESS_TO_GOAL_TARGET=1.0;
+function progressToGoal(p){
+  if(p.revenue==null) return null;
+  const goal = p.tp==='FT' ? PRS_GOAL_BIWEEKLY_FT : PRS_GOAL_BIWEEKLY_PT;
+  return goal>0 ? p.revenue/goal : null;
+}
 function isProductive(p){
-  const tg = p.tp==='FT' ? DTGT.caseloadFT : DTGT.caseloadPT;
-  return tg>0 && (p.caseload/tg) >= PRODUCTIVE_TARGET;
+  const pct = progressToGoal(p);
+  return pct!=null && pct >= PROGRESS_TO_GOAL_TARGET;
 }
 function buildCountyRows(providers){
   const byCounty={};
@@ -896,11 +934,12 @@ function buildPriorities(){
     if(row.opp==='High') row.reasons.push({text:'High caseload opportunity — '+fmtPct(row.util)+' utilization or thin coverage', cls:'bad'});
     else if(row.opp==='Watch') row.reasons.push({text:'Approaching capacity — '+fmtPct(row.util)+' utilization', cls:'warn'});
     // Room on paper doesn't necessarily mean referrals are urgent -- if most
-    // of the county's own providers are already at 65%+ of their personal
-    // target, that's a real counter-signal worth seeing right alongside the
-    // opportunity flag, not just buried in County Detail.
+    // of the county's own providers are already at 100%+ Progress to Goal
+    // (fulfilling their billable requirements), that's a real counter-signal
+    // worth seeing right alongside the opportunity flag, not just buried in
+    // County Detail.
     if((row.opp==='High' || row.opp==='Watch') && row.providerCount>0 && row.productive/row.providerCount>=0.5){
-      row.reasons.push({text:row.productive+'/'+row.providerCount+' providers already at 65%+ of target — may not be urgent', cls:'neutral'});
+      row.reasons.push({text:row.productive+'/'+row.providerCount+' providers already at 100%+ Progress to Goal — may not be urgent', cls:'neutral'});
     }
 
     const countyLeads=LEADS.filter(l=>((l.county||'Unspecified').trim()||'Unspecified')===row.county);
@@ -993,7 +1032,7 @@ function renderKPIs(rows, all){
     kpi('Counties Covered', rows.length) +
     kpi('Total Caseload', totalCaseload.toLocaleString(), `of ${totalCapacity.toLocaleString()} capacity`) +
     kpi('Overall Utilization', fmtPct(overallUtil), null, overallUtil>=1?'bad':overallUtil>=0.85?'warn':'good') +
-    kpi('Productive Providers', totalProductive+' / '+totalProviders, fmtPct(totalProviders?totalProductive/totalProviders:0)+' at 65%+ of target') +
+    kpi('Productive Providers', totalProductive+' / '+totalProviders, fmtPct(totalProviders?totalProductive/totalProviders:0)+' at 100%+ Progress to Goal') +
     kpi('Thin-Coverage Counties', thinCoverage, '≤1 active provider', thinCoverage?'warn':'good') +
     kpi('High-Opportunity Counties', highOpp, needsPeers + ' "needs peers" signal' + (needsPeers===1?'':'s'), highOpp?'bad':'good');
 }
@@ -1054,11 +1093,13 @@ function renderTable(rows){
       const chips=hits.map(h=>`<span class="signal-chip ${h.cls}" title="${xe(h.trigger)}">${h.label}</span>`).join('') || '';
       const tg=p.tp==='FT'?DTGT.caseloadFT:DTGT.caseloadPT;
       const prod=isProductive(p);
+      const ptg=progressToGoal(p);
+      const ptgLabel = ptg==null ? 'no revenue data for latest period' : fmtPct(ptg)+' Progress to Goal';
       return `<div class="prov-row">
         <div><div class="nm">${xe(p.name)}</div><div class="sub">${xe(p.city||'—')} · ${xe(p.mgrFull)}</div></div>
         <div>${xe(p.program||p.prog||'—')}</div>
         <div>${xe(p.tp||'—')}</div>
-        <div>${p.caseload} / ${tg}${prod?' <span class="bdg good" title="65%+ of caseload target">Productive</span>':''}</div>
+        <div>${p.caseload} / ${tg} caseload${prod?` <span class="bdg good" title="${xe(ptgLabel)}">Productive</span>`:` <span class="sub" title="${xe(ptgLabel)}">(${ptgLabel})</span>`}</div>
         <div>${chips}${p.notes?`<div class="sub" style="margin-top:3px">${xe(p.notes)}</div>`:''}</div>
       </div>`;
     }).join('');
