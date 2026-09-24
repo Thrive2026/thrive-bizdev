@@ -41,7 +41,9 @@
   tool is no longer read-only like the original version):
     - 'bd_leads'      (array of BD lead records — added/edited/deleted here)
     - 'bd_referrals'  (array of referral-volume log entries — added here one
-                        at a time, or bulk-imported via CSV)
+                        at a time via the manual form; bulk CSV import for
+                        this same key moved to Data & Staff Hub 9/24/26, see
+                        H.slotFileBdRef()/H.commitBdRef() there)
   Both use the same appdata upsert-with-on_conflict=key pattern every other
   hub's writes use, to avoid the ecosystem's known silent-save bug.
 
@@ -307,7 +309,11 @@ tr.detail-row td{background:#fbf9f3;padding:0}
          being used and the CSV importer needs real UX work before it's worth having
          around. Tab markup, data load, and Leads'/This Week's Focus's referral-YTD
          lookups (which fall back to Klip data when a REFERRALS row is missing) are
-         all left intact below -- re-enabling is just un-hiding this button. -->
+         all left intact below -- re-enabling is just un-hiding this button. UPDATE
+         9/24/26: the bulk-CSV upload path for this tab has since been centralized into
+         Data & Staff Hub (writes to the same 'bd_referrals' key) per Brandon's
+         direction -- see the hint-text note in the form card below. Still hidden, not
+         dead; just deferred until the UX work happens. -->
     <button class="tab-btn" id="tabBtnReferrals" onclick="bdShowTab('referrals')" style="display:none">Referral Volume</button>
     <button class="tab-btn" id="tabBtnInsights" onclick="bdShowTab('insights')">Referral Insights</button>
     <button class="tab-btn" id="tabBtnDeliverables" onclick="bdShowTab('deliverables')">Deliverables</button>
@@ -467,8 +473,16 @@ tr.detail-row td{background:#fbf9f3;padding:0}
         <button class="btn-g" id="rfCancelBtn" style="display:none" onclick="bdCancelReferralEdit()">Cancel Edit</button>
       </div>
       <div class="hint-text">
-        <span class="term" title="If this organization is already tracked, the counts you enter are added to its running YTD total; if not, a new row is created. Use Edit on an existing row to overwrite its totals directly instead.">Adding logs referrals (hover)</span> · <span class="term" title="Columns: org, region, selfReferral, hospitalED, inpatientDetox, pcpOutpatient, courtCJC, mcoCareCoord, peerCommunity, other, notes. Same add-or-increment rule applies per row; a header row starting with &quot;org,&quot; is skipped automatically.">Bulk CSV import (hover for columns)</span>
-        <input type="file" id="refCsvFile" accept=".csv" style="margin-top:8px;display:block" onchange="bdImportReferralCsv(event)">
+        <span class="term" title="If this organization is already tracked, the counts you enter are added to its running YTD total; if not, a new row is created. Use Edit on an existing row to overwrite its totals directly instead.">Adding logs referrals (hover)</span>
+        <!-- Bulk CSV import moved to Data & Staff Hub 9/24/26 per Brandon's centralization
+             direction -- see H.slotFileBdRef()/H.commitBdRef() in data-hub's index.html, which
+             writes to this same 'bd_referrals' key. bdImportReferralCsv() and the #refCsvFile
+             input below are left in place, inert, as a fallback during the transition. This whole
+             tab is still hidden (see the tab-bar comment above) pending real UX work, so this
+             link isn't reachable by anyone today -- it's here so the CSV path is already correct
+             the moment the tab comes back. -->
+        <div style="margin-top:8px"><a href="https://thrive-data-hub.onrender.com" target="_blank" rel="noopener">↑ Bulk CSV import — Data Hub</a></div>
+        <input type="file" id="refCsvFile" accept=".csv" style="margin-top:8px;display:none" onchange="bdImportReferralCsv(event)">
       </div>
     </div>
 
