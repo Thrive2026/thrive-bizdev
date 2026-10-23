@@ -234,6 +234,24 @@ tr.detail-row td{background:#fbf9f3;padding:0}
 .term-line{font-size:11.5px;color:var(--muted);margin-bottom:14px;line-height:1.7}
 .term{border-bottom:1px dotted var(--muted);cursor:help;color:var(--ink-soft);font-weight:600}
 .overdue{color:var(--bad);font-weight:700}
+.inbox-tab-badge{display:inline-block;margin-left:6px;background:var(--thrive-yellow);color:var(--ink);font-size:10px;font-weight:700;border-radius:10px;padding:1px 7px;vertical-align:1px}
+.inbox-wrap{display:flex;flex-direction:column;gap:10px;margin-bottom:22px}
+.inbox-card{background:var(--paper);border:1px solid var(--rule);border-left:4px solid var(--thrive-yellow);border-radius:8px;box-shadow:var(--shadow);padding:14px 16px}
+.inbox-card.reviewed{border-left-color:var(--rule-strong);opacity:.85}
+.inbox-top{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.inbox-org{font-family:'Fraunces',serif;font-size:17px;font-weight:500}
+.inbox-meta{font-size:11.5px;color:var(--muted);font-family:'IBM Plex Mono',monospace}
+.inbox-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.inbox-chip{font-size:11px;border-radius:10px;padding:2px 9px;background:#eee9dc;color:var(--ink-soft)}
+.inbox-chip.help{background:var(--bad-bg);color:var(--bad);font-weight:600}
+.inbox-chip.stage{background:#e9ecf7;color:var(--thrive-blue)}
+.inbox-notes{font-size:13px;color:var(--ink-soft);margin-top:8px;line-height:1.5;white-space:pre-wrap}
+.inbox-contact{font-size:12px;color:var(--ink-soft);margin-top:6px}
+.inbox-match{margin-top:10px;background:var(--warn-bg);color:var(--warn);border-radius:6px;padding:7px 11px;font-size:12px}
+.inbox-actions{display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap}
+.inbox-actions input{flex:1;min-width:200px;border:1px solid var(--rule-strong);border-radius:5px;padding:7px 10px;font-size:12.5px;font-family:inherit;background:#fdfbf6;color:var(--ink)}
+.inbox-actions select{border:1px solid var(--rule-strong);border-radius:5px;padding:7px 8px;font-size:12px;font-family:inherit;background:#fdfbf6;color:var(--ink);max-width:220px}
+.inbox-empty{background:var(--paper);border:1px dashed var(--rule-strong);border-radius:8px;padding:18px;text-align:center;color:var(--muted);font-size:13px}
 .tbl-actions button{background:transparent;border:1px solid var(--rule-strong);border-radius:4px;padding:3px 9px;font-size:11px;cursor:pointer;font-family:inherit;color:var(--ink-soft);margin-right:5px}
 .tbl-actions button:hover{background:#f1ead9;color:var(--ink)}
 .trend-up{color:var(--good);font-weight:700} .trend-down{color:var(--bad);font-weight:700} .trend-flat{color:var(--muted)}
@@ -304,7 +322,7 @@ tr.detail-row td{background:#fbf9f3;padding:0}
 
   <div class="tab-bar">
     <button class="tab-btn active" id="tabBtnOverview" onclick="bdShowTab('overview')">Overview</button>
-    <button class="tab-btn" id="tabBtnLeads" onclick="bdShowTab('leads')">Leads</button>
+    <button class="tab-btn" id="tabBtnLeads" onclick="bdShowTab('leads')">Leads<span id="inboxTabBadge" class="inbox-tab-badge" style="display:none"></span></button>
     <!-- Referral Volume hidden per Brandon 9/10/26 -- manual entry/CSV import wasn't
          being used and the CSV importer needs real UX work before it's worth having
          around. Tab markup, data load, and Leads'/This Week's Focus's referral-YTD
@@ -371,6 +389,12 @@ tr.detail-row td{background:#fbf9f3;padding:0}
 
   <!-- ============================= LEADS TAB ============================= -->
   <div id="tabLeads" style="display:none">
+    <!-- SHARED LEADS INBOX (added 10/22/26) — submissions from the "Share a Lead"
+         button in every hub (bd-lead-share.js → public.bd_lead_submissions). -->
+    <div class="sec-hd" style="margin-top:6px"><h3>Shared Leads Inbox</h3><span class="hint">leads staff shared from the hubs · they stay the relationship owner</span><div class="rule"></div>
+      <button class="btn-g" id="inboxHistoryBtn" onclick="bdToggleInboxHistory()">Show reviewed</button></div>
+    <div id="sharedInbox" class="inbox-wrap"></div>
+
     <div class="kpi-row" id="leadsKpiRow"></div>
 
     <div class="sec-hd"><h3>Open Leads by Owner</h3><span class="hint">who's carrying what right now</span><div class="rule"></div></div>
@@ -1651,7 +1675,172 @@ function renderLeadsTable(){
     <tr class="detail-row" id="${detailId}" style="display:${open?'':'none'}"><td colspan="8"><div class="detail-inner">${leadDetailHtml(l)}</div></td></tr>`;
   }).join('');
 }
+// ══════════════════════════════════════════════════════════════════
+// SHARED LEADS INBOX (added 10/22/26)
+// Staff in any hub tap "Share a Lead" (bd-lead-share.js). Each submission is
+// a row in the real table public.bd_lead_submissions (NOT appdata — many
+// people submit at once, so one-row-per-submission avoids the blob
+// overwrite problem). RLS: anyone signed in can insert + read their own;
+// org_wide can read/update all. Reads use the AUTHENTICATED sbClient, never
+// a raw anon fetch (anon-only fetches silently return [] against RLS).
+//
+// Justin's three moves per submission:
+//   Add to pipeline  → new bd_leads record, owner = the person who shared it
+//   Link to existing → logs it as activity on a lead already in bd_leads
+//   Dismiss          → marks reviewed (kept for the record, never deleted)
+// An optional note goes back to the submitter; they see it under
+// "My shared leads" in the widget.
+// ══════════════════════════════════════════════════════════════════
+let SUBMISSIONS=[];
+let INBOX_SHOW_HISTORY=false;
+const STAGE_TO_STATUS={
+  'Just an idea / heard about them':'New',
+  'Had a first conversation':'Contacted',
+  'Ongoing conversations':'In Discussion',
+  'Meeting scheduled':'Meeting Scheduled',
+  'Ready to move forward':'In Discussion',
+  'Existing partner — new opportunity':'Active Partner'
+};
+const SUB_STATUS_LABEL={accepted:'Acknowledged · added to pipeline', linked:'Acknowledged · linked to existing lead', dismissed:'Dismissed'};
+function subAsksForHelp(s){ return (s.help_needed||[]).some(h=>h.indexOf('Nothing yet')!==0); }
+async function bdLoadSubmissions(){
+  if(!sbClient) return;
+  try{
+    const res = await sbClient.from('bd_lead_submissions').select('*').order('created_at',{ascending:false}).limit(300);
+    if(res.error) throw res.error;
+    SUBMISSIONS = res.data || [];
+  }catch(e){
+    console.warn('[bdLoadSubmissions]', e);
+    SUBMISSIONS = null; // null = couldn't load (table missing / no access), shown as a message
+  }
+}
+function bdToggleInboxHistory(){
+  INBOX_SHOW_HISTORY=!INBOX_SHOW_HISTORY;
+  document.getElementById('inboxHistoryBtn').textContent = INBOX_SHOW_HISTORY ? 'Hide reviewed' : 'Show reviewed';
+  renderSharedInbox();
+}
+function renderSharedInbox(){
+  const wrap=document.getElementById('sharedInbox');
+  const badge=document.getElementById('inboxTabBadge');
+  if(!wrap) return;
+  // Don't wipe a note Justin is mid-typing when the 60s auto-refresh fires.
+  const active=document.activeElement;
+  if(active && active.id && (active.id.indexOf('subNote-')===0 || active.id.indexOf('subLink-')===0) && wrap.contains(active)) return;
+  if(SUBMISSIONS===null){
+    wrap.innerHTML='<div class="inbox-empty">The Shared Leads inbox couldn\'t load. If this is a new setup, run <code>bd_lead_submissions.sql</code> in Supabase first.</div>';
+    badge.style.display='none';
+    return;
+  }
+  const pending=SUBMISSIONS.filter(s=>s.status==='new');
+  badge.textContent=pending.length; badge.style.display=pending.length?'':'none';
+  const shown = INBOX_SHOW_HISTORY ? SUBMISSIONS : pending;
+  if(!shown.length){
+    wrap.innerHTML='<div class="inbox-empty">'+(INBOX_SHOW_HISTORY?'No shared leads yet.':'You\'re all caught up. No new shared leads.')+'</div>';
+    return;
+  }
+  const leadOpts = [...LEADS].sort((a,b)=>(a.org||'').localeCompare(b.org||'')).map(l=>`<option value="${xe(l.id)}">${xe(l.org)}</option>`).join('');
+  wrap.innerHTML = shown.map(s=>{
+    const reviewed = s.status!=='new';
+    const match = LEADS.find(l=>orgNamesMatch(l.org, s.org));
+    const contact=[s.contact_name, s.contact_phone, s.contact_email].filter(Boolean).join(' · ');
+    const chips=[
+      s.stage?`<span class="inbox-chip stage">${xe(s.stage)}</span>`:'',
+      ...(s.help_needed||[]).map(h=>`<span class="inbox-chip ${h.indexOf('Nothing yet')===0?'':'help'}">${xe(h.indexOf('Nothing yet')===0?'FYI only':(h==='Please reach out'?'Wants you to reach out':'Help: '+h))}</span>`),
+      s.org_type?`<span class="inbox-chip">${xe(s.org_type)}</span>`:'',
+      s.county?`<span class="inbox-chip">${xe(s.county)}</span>`:'',
+    ].join('');
+    const actions = reviewed
+      ? `<div class="inbox-meta" style="margin-top:10px">${xe(SUB_STATUS_LABEL[s.status]||s.status)}${s.reviewed_by?' by '+xe(s.reviewed_by):''}${s.reviewed_at?' · '+xe(new Date(s.reviewed_at).toLocaleDateString()):''}${s.review_note?' — “'+xe(s.review_note)+'”':''}</div>`
+      : `<div class="inbox-actions">
+          <input type="text" id="subNote-${s.id}" placeholder="Optional note back to ${xe(s.submitter_name||'them')}, e.g. 'Thanks, I'll call you Monday' (they'll see it)">
+        </div>
+        <div class="inbox-actions">
+          ${match
+            ? `<button class="btn-primary" onclick="bdLinkSubmission('${s.id}','${xe(match.id)}')">Acknowledge &amp; link to “${xe(match.org)}”</button>
+               <button class="btn-g" onclick="bdAcceptSubmission('${s.id}')">Add as a new lead instead</button>`
+            : `<button class="btn-primary" onclick="bdAcceptSubmission('${s.id}')">Acknowledge &amp; add to pipeline</button>`}
+          <select id="subLink-${s.id}"><option value="">Link to a different lead…</option>${leadOpts}</select>
+          <button class="btn-g" onclick="bdLinkSubmissionPicked('${s.id}')">Link</button>
+          <button class="btn-g" onclick="bdDismissSubmission('${s.id}')">Dismiss</button>
+        </div>`;
+    return `<div class="inbox-card${reviewed?' reviewed':''}">
+      <div class="inbox-top">
+        <span class="inbox-org">${xe(s.org)}</span>
+        <span class="inbox-meta">shared by ${xe(s.submitter_name||s.submitter_email||'—')}${s.source_hub?' · '+xe(s.source_hub):''} · ${xe(new Date(s.created_at).toLocaleDateString())}</span>
+      </div>
+      <div class="inbox-chips">${chips}</div>
+      ${s.notes?`<div class="inbox-notes">${xe(s.notes)}</div>`:''}
+      ${contact?`<div class="inbox-contact"><b>Contact:</b> ${xe(contact)}</div>`:''}
+      ${(!reviewed && match)?`<div class="inbox-match">Looks like this matches an existing lead: <b>${xe(match.org)}</b> (owner: ${xe(match.owner||'—')}, ${xe(match.status||'New')}).</div>`:''}
+      ${actions}
+    </div>`;
+  }).join('');
+}
+async function bdMarkSubmission(id, status, leadId){
+  const noteEl=document.getElementById('subNote-'+id);
+  const note = noteEl ? noteEl.value.trim() : '';
+  const patch={ status, lead_id: leadId||null, reviewed_by: currentReviewerName||'', reviewed_at: new Date().toISOString(), review_note: note||null };
+  const res = await sbClient.from('bd_lead_submissions').update(patch).eq('id', id);
+  if(res.error){ alert('Could not update the inbox item: '+res.error.message); return false; }
+  const s=SUBMISSIONS.find(x=>x.id===id); if(s) Object.assign(s, patch);
+  return true;
+}
+function subActivityText(s){
+  const bits=[`Shared via ${s.source_hub||'a hub'} by ${s.submitter_name||s.submitter_email||'staff'}`];
+  if(s.stage) bits.push(`Stage: ${s.stage}`);
+  const help=(s.help_needed||[]).filter(h=>h.indexOf('Nothing yet')!==0);
+  if(help.length) bits.push(`Asked for help with: ${help.join(', ')}`);
+  return bits.join(' · ') + (s.notes ? ` — ${s.notes}` : '');
+}
+async function bdAcceptSubmission(id){
+  const s=SUBMISSIONS.find(x=>x.id===id); if(!s) return;
+  const now=new Date().toISOString(), today=now.slice(0,10);
+  const lead={
+    id:newId('ld'), org:s.org, type:s.org_type||'Other', county:s.county||'', city:'',
+    contactName:s.contact_name||'', contactPhone:s.contact_phone||'', contactEmail:s.contact_email||'',
+    goal:'', status:STAGE_TO_STATUS[s.stage]||'New',
+    owner:s.submitter_name||s.submitter_email||'',            // relationship stays with whoever shared it
+    priority: subAsksForHelp(s) ? 'High' : 'Medium',
+    dateInitiated:today, lastContactDate:'', nextFollowUp:'', address:'',
+    notes:s.notes||'', nextSteps:'',
+    dateAdded:now, lastUpdated:now, updatedBy:currentReviewerName||'',
+    statusHistory:[], sharedSubmissionId:s.id, sharedFromHub:s.source_hub||'',
+    activity:[{ date:now, author:currentReviewerName||'', text:subActivityText(s) }]
+  };
+  LEADS.push(lead);
+  const ok = await sbUpsertAppdata('bd_leads', LEADS);
+  if(!ok){ LEADS=LEADS.filter(l=>l.id!==lead.id); return; }
+  await bdMarkSubmission(id,'accepted',lead.id);
+  renderLeadsTab(); renderPriorities();
+}
+async function bdLinkSubmission(id, leadId){
+  const s=SUBMISSIONS.find(x=>x.id===id); const l=LEADS.find(x=>x.id===leadId);
+  if(!s||!l) return;
+  const now=new Date().toISOString();
+  l.activity=l.activity||[];
+  l.activity.push({ date:now, author:currentReviewerName||'', text:subActivityText(s) });
+  if(!l.contactName && s.contact_name) l.contactName=s.contact_name;
+  if(!l.contactPhone && s.contact_phone) l.contactPhone=s.contact_phone;
+  if(!l.contactEmail && s.contact_email) l.contactEmail=s.contact_email;
+  l.lastUpdated=now; l.updatedBy=currentReviewerName||'';
+  const ok = await sbUpsertAppdata('bd_leads', LEADS);
+  if(!ok) return;
+  await bdMarkSubmission(id,'linked',leadId);
+  renderLeadsTab(); renderPriorities();
+}
+function bdLinkSubmissionPicked(id){
+  const v=document.getElementById('subLink-'+id).value;
+  if(!v){ alert('Pick which lead to link this to.'); return; }
+  bdLinkSubmission(id, v);
+}
+async function bdDismissSubmission(id){
+  const s=SUBMISSIONS.find(x=>x.id===id); if(!s) return;
+  if(!confirm(`Dismiss "${s.org}"? It stays in the reviewed history and isn't added to the pipeline.`)) return;
+  if(await bdMarkSubmission(id,'dismissed',null)) renderSharedInbox();
+}
+
 function renderLeadsTab(){
+  renderSharedInbox();
   populateLeadOwnerFilter();
   renderOwnerBreakdown();
   renderLeadsKPIs();
@@ -2127,6 +2316,7 @@ async function bdLoadData(){
     const leads=parse('bd_leads'); if(leads && Array.isArray(leads)) LEADS=leads;
     const refs=parse('bd_referrals'); if(refs && Array.isArray(refs)) REFERRALS=refs;
   }
+  await bdLoadSubmissions();
   await renderAll();
   renderLeadsTab();
   renderReferralsTab();
