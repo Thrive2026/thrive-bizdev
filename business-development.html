@@ -1861,8 +1861,10 @@ function renderLeadsTable(){
 //   Add to pipeline  → new bd_leads record, owner = the person who shared it
 //   Link to existing → logs it as activity on a lead already in bd_leads
 //   Dismiss          → marks reviewed (kept for the record, never deleted)
-// An optional note goes back to the submitter; they see it under
-// "My shared leads" in the widget.
+// The submitter sees the outcome (acknowledged/linked/dismissed) under
+// "My shared leads" in their own hub. The optional note-back field was
+// removed 10/23/26 per Brandon — seeing the status in-hub is enough.
+// review_note is always written as null now; old notes still display.
 // ══════════════════════════════════════════════════════════════════
 let SUBMISSIONS=[];
 let INBOX_SHOW_HISTORY=false;
@@ -1896,9 +1898,9 @@ function renderSharedInbox(){
   const wrap=document.getElementById('sharedInbox');
   const badge=document.getElementById('inboxTabBadge');
   if(!wrap) return;
-  // Don't wipe a note Justin is mid-typing when the 60s auto-refresh fires.
+  // Don't reset a lead picker Justin is mid-choosing when the 60s auto-refresh fires.
   const active=document.activeElement;
-  if(active && active.id && (active.id.indexOf('subNote-')===0 || active.id.indexOf('subLink-')===0) && wrap.contains(active)) return;
+  if(active && active.id && active.id.indexOf('subLink-')===0 && wrap.contains(active)) return;
   if(SUBMISSIONS===null){
     wrap.innerHTML='<div class="inbox-empty">The Shared Leads inbox couldn\'t load. If this is a new setup, run <code>bd_lead_submissions.sql</code> in Supabase first.</div>';
     badge.style.display='none';
@@ -1925,9 +1927,6 @@ function renderSharedInbox(){
     const actions = reviewed
       ? `<div class="inbox-meta" style="margin-top:10px">${xe(SUB_STATUS_LABEL[s.status]||s.status)}${s.reviewed_by?' by '+xe(s.reviewed_by):''}${s.reviewed_at?' · '+xe(new Date(s.reviewed_at).toLocaleDateString()):''}${s.review_note?' — “'+xe(s.review_note)+'”':''}</div>`
       : `<div class="inbox-actions">
-          <input type="text" id="subNote-${s.id}" placeholder="Optional note back to ${xe(s.submitter_name||'them')}, e.g. 'Thanks, I'll call you Monday' (they'll see it)">
-        </div>
-        <div class="inbox-actions">
           ${match
             ? `<button class="btn-primary" onclick="bdLinkSubmission('${s.id}','${xe(match.id)}')">Acknowledge &amp; link to “${xe(match.org)}”</button>
                <button class="btn-g" onclick="bdAcceptSubmission('${s.id}')">Add as a new lead instead</button>`
@@ -1950,9 +1949,7 @@ function renderSharedInbox(){
   }).join('');
 }
 async function bdMarkSubmission(id, status, leadId){
-  const noteEl=document.getElementById('subNote-'+id);
-  const note = noteEl ? noteEl.value.trim() : '';
-  const patch={ status, lead_id: leadId||null, reviewed_by: currentReviewerName||'', reviewed_at: new Date().toISOString(), review_note: note||null };
+  const patch={ status, lead_id: leadId||null, reviewed_by: currentReviewerName||'', reviewed_at: new Date().toISOString(), review_note: null };
   const res = await sbClient.from('bd_lead_submissions').update(patch).eq('id', id);
   if(res.error){ alert('Could not update the inbox item: '+res.error.message); return false; }
   const s=SUBMISSIONS.find(x=>x.id===id); if(s) Object.assign(s, patch);
