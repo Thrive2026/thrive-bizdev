@@ -2703,19 +2703,19 @@ const OHIO_BOARDS=[
 const OB_STATUSES=['Standing Relationship','Individual Outreach','Not Contacted','Letter Sent','Follow-up Needed','Meeting Scheduled','In Discussion','Partner','Not a Fit'];
 const OB_STATUS_CLS={'Standing Relationship':'good','Individual Outreach':'todo','Not Contacted':'neutral','Letter Sent':'todo','Follow-up Needed':'warn','Meeting Scheduled':'good','In Discussion':'good','Partner':'good','Not a Fit':'bad'};
 const OB_DEFAULT_TEMPLATE={
-  subject:'Introduction: Thrive Peer Recovery Services and {{board_name}}',
+  subject:'Introduction: Thrive Peer Recovery Services',
   body:
 `Dear {{salutation}},
 
-My name is Justin Larson, and I am the Vice President of Engagement and Relations at Thrive Peer Recovery Services. I'm writing to introduce myself and our organization, and to ask for a brief conversation at your convenience.
+My name is Justin Larson, and I am the Vice President of Engagement and Relations at Thrive Peer Recovery Services. Since 2017, Thrive's peer supporters, most of them in recovery themselves, have served more than 25,000 Ohioans across community, hospital, crisis, court and reentry settings. I am writing to introduce myself and our organization, and to ask for a brief conversation at your convenience.
 
-Thrive is a CARF-accredited peer recovery support organization. Our peer supporters bring their own lived experience of recovery to the people we serve, meeting them in the community, in hospitals and emergency departments, in courts and jails, and through our warmline. We help people connect to treatment, stay engaged after discharge, and build the supports that keep recovery going.
+Your board plays a central role in shaping the mental health and addiction services available in {{county_phrase}}. I would welcome the opportunity to learn more about the service priorities of your board and your provider network, and where you see the greatest needs today.
 
-Your board plays a central role in shaping the mental health and addiction services available in {{county_phrase}}. I would welcome the chance to learn about your board's current priorities, your provider network, and where you see the greatest needs today, and to explore whether Thrive's peer services could support that work.
+I would also like to share more detail about Thrive's services and explore whether there are opportunities for us to work together in support of those priorities.
 
-I've attached a short overview of Thrive; my contact information is at the end of the deck. Would you have 20 to 30 minutes in the coming weeks for a call or a visit? I'm happy to work around your schedule.
+I have attached a short slide deck that provides an overview of Thrive. If you are open to a 20–30 minute call or visit in the coming weeks, simply reply to this email and I will work around your schedule.
 
-Thank you for your time and for the work your board does for your community. I look forward to connecting.
+Thank you for your time and for the important work your board does. I look forward to the possibility of connecting.
 
 Sincerely,
 
@@ -2973,7 +2973,7 @@ function renderBoardsKPIs(){
   const kpi=(lbl,val,sub,cls)=>`<div class="kpi ${cls||''}"><div class="lbl">${lbl}</div><div class="val">${val}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
   const today=goalTodayIso();
   const st=OHIO_BOARDS.map(b=>obStatus(b.id));
-  const contacted=st.filter(s=>s!=='Not Contacted'&&s!=='Standing Relationship').length;
+  const contacted=st.filter(s=>!['Not Contacted','Standing Relationship','Individual Outreach'].includes(s)).length;
   const meetings=st.filter(s=>s==='Meeting Scheduled'||s==='In Discussion').length;
   const partners=st.filter(s=>s==='Partner'||s==='Standing Relationship').length;
   const footprint=OHIO_BOARDS.filter(b=>obPresence(b)>0).length;
