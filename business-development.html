@@ -23,6 +23,9 @@
     - Referral Insights — read-only Klip referral-source snapshot (KLIP_INSIGHTS,
                            static as of KLIP_SNAPSHOT_DATE).
     - Deliverables      — read-only rollup over Leads for BD accountability.
+    - County Boards     — (11/3/26) all 49 Ohio ADAMH/MHRS boards (88 counties)
+                           with outreach tracking + intro-letter template
+                           (appdata 'bd_boards'). Roster in OHIO_BOARDS.
 
   WHAT THIS READS from the shared Supabase appdata table:
     - 'staff'         (same roster Data & Staff Hub/Community/Hospital/Courts/
@@ -291,6 +294,26 @@ tr.detail-row td{background:#fbf9f3;padding:0}
 .activity-add-row select{font-family:inherit;font-size:12px;padding:6px 8px;border:1px solid var(--rule-strong);border-radius:5px;background:#fdfbf6;color:var(--ink)}
 .activity-add-row button{white-space:nowrap}
 
+/* ---------- county boards tab ---------- */
+.ob-letter-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+@media (max-width:1000px){.ob-letter-grid{grid-template-columns:1fr}}
+textarea.ob-tpl{min-height:340px;font-size:13px;line-height:1.55;width:100%}
+.ob-sub{font-size:11.5px;color:var(--muted)}
+.ob-materials{display:flex;gap:12px;flex-wrap:wrap;padding:14px 16px;margin-bottom:6px}
+.ob-file{display:flex;align-items:center;gap:12px;flex:1;min-width:260px;padding:12px 14px;border:1px solid var(--rule);border-radius:8px;text-decoration:none;color:var(--ink);background:#fdfbf6;font-size:13px;line-height:1.4}
+.ob-file:hover{border-color:var(--thrive-yellow);background:#fff}
+.ob-file-ic{flex:none;width:42px;height:42px;border-radius:8px;background:var(--bad-bg);color:var(--bad);font:700 11px 'IBM Plex Mono',monospace;display:flex;align-items:center;justify-content:center}
+.ob-file-ic.ppt{background:var(--warn-bg);color:var(--warn)}
+#obKpiRow{grid-template-columns:repeat(4,1fr)}
+@media (max-width:640px){#obKpiRow{grid-template-columns:repeat(2,1fr)}}
+.ob-noemail{display:inline-block;font-size:11px;font-weight:600;color:var(--bad);background:var(--bad-bg);border-radius:4px;padding:1px 7px;margin-top:4px}
+.ob-star{color:var(--bad);font-weight:700;font-size:16px;margin-left:3px;cursor:help}
+.ob-confirm{font-size:11px;color:var(--bad);font-weight:600;margin-top:3px}
+.ob-confirmed{font-size:11px;color:var(--good);font-weight:600;margin-top:3px}
+.ob-verify{font-size:11px;color:var(--warn);background:var(--warn-bg);border-radius:4px;padding:2px 7px;margin-top:4px;display:inline-block;max-width:420px}
+.ob-sub a{color:var(--thrive-blue)}
+.ob-county{display:inline-block;font-size:11px;background:#eee9dc;color:var(--ink-soft);border-radius:8px;padding:1px 8px;margin:0 3px 3px 0;white-space:nowrap}
+
 /* ---------- referral volume table ---------- */
 .ref-cell{display:flex;align-items:center;gap:6px;white-space:nowrap}
 .ref-inc{font-size:9.5px;padding:1px 6px;border:1px solid var(--rule-strong);border-radius:3px;background:transparent;cursor:pointer;color:var(--ink-soft);font-family:inherit}
@@ -338,6 +361,7 @@ tr.detail-row td{background:#fbf9f3;padding:0}
   <div class="tab-bar">
     <button class="tab-btn active" id="tabBtnOverview" onclick="bdShowTab('overview')">Overview</button>
     <button class="tab-btn" id="tabBtnLeads" onclick="bdShowTab('leads')">Leads<span id="inboxTabBadge" class="inbox-tab-badge" style="display:none"></span></button>
+    <button class="tab-btn" id="tabBtnBoards" onclick="bdShowTab('boards')">County Boards</button>
     <!-- Referral Volume hidden per Brandon 9/10/26 -- manual entry/CSV import wasn't
          being used and the CSV importer needs real UX work before it's worth having
          around. Tab markup, data load, and Leads'/This Week's Focus's referral-YTD
@@ -661,9 +685,129 @@ tr.detail-row td{background:#fbf9f3;padding:0}
     </div>
   </div>
 
+  <!-- ============================= COUNTY BOARDS TAB ============================= -->
+  <!-- Added 11/3/26 per Brandon/Justin: every Ohio ADAMH / MHRS / behavioral health
+       board (49 boards covering all 88 counties) as a BD outreach target list, with
+       per-board contact + status tracking and the intro letter as an editable template
+       that merges each board's name/counties. Tracking + template stored in appdata key
+       'bd_boards'. Board roster is baked in (OHIO_BOARDS below) -- 49 boards after the 7/1/26 NCBHB merger;
+       contacts pulled from board websites 11/3/26; boards merge/rename, so
+       re-check against oacbha.org/mappage.php before a big mailing. -->
+  <div id="tabBoards" style="display:none">
+    <div class="kpi-row" id="obKpiRow"></div>
+
+    <!-- Outreach materials (11/4/26): the board overview deck lives in the repo's
+         outreach/ folder next to this page, so Justin can grab it straight from the hub. -->
+    <div class="sec-hd"><h3>Outreach Materials</h3><span class="hint">the deck that goes with the intro email</span><div class="rule"></div></div>
+    <div class="card ob-materials">
+      <a class="ob-file" href="Thrive%20ADAMHS%20Board%20Overview.pdf" target="_blank" rel="noopener">
+        <span class="ob-file-ic">PDF</span>
+        <span><b>Thrive ADAMHS Board Overview</b><br><span class="ob-sub">PDF · about 3.8 MB · attach this one to emails</span></span>
+      </a>
+      <a class="ob-file" href="Thrive%20ADAMHS%20Board%20Overview.pptx" download>
+        <span class="ob-file-ic ppt">PPT</span>
+        <span><b>Thrive ADAMHS Board Overview</b><br><span class="ob-sub">PowerPoint · about 3.3 MB · for presenting or editing</span></span>
+      </a>
+    </div>
+
+    <div class="sec-hd"><h3>Intro Letter</h3><span class="hint">shared template — merge fields fill in per board</span><div class="rule"></div>
+      <button class="btn-g" id="obLetterToggle" onclick="obToggleLetter()">Show letter</button></div>
+    <div class="form-card" id="obLetterCard" style="display:none">
+      <div class="ob-letter-grid">
+        <div>
+          <h4>Template</h4>
+          <div class="form-field"><label>Subject</label><input type="text" id="obTplSubject"></div>
+          <div class="form-field" style="margin-top:10px"><label>Body</label><textarea id="obTplBody" class="ob-tpl"></textarea></div>
+          <div class="hint-text">Merge fields: <code>{{salutation}}</code> <code>{{board_name}}</code> <code>{{county_phrase}}</code> <code>{{sender_name}}</code>. Salutation uses the board's saved salutation, then contact name, then "Executive Director".</div>
+          <div class="form-actions">
+            <button class="btn-primary" onclick="obSaveTemplate()">Save Template</button>
+            <button class="btn-g" onclick="obResetTemplate()">Reset to default</button>
+          </div>
+        </div>
+        <div>
+          <h4>Preview &amp; send</h4>
+          <div class="form-field"><label>Board</label><select id="obPreviewBoard" onchange="obRenderPreview()"></select></div>
+          <div class="form-field" style="margin-top:10px"><label>Subject</label><input type="text" id="obPrevSubject"></div>
+          <div class="form-field" style="margin-top:10px"><label>Letter (edit freely before sending — edits here aren't saved)</label><textarea id="obPrevBody" class="ob-tpl"></textarea></div>
+          <div class="form-actions" style="flex-wrap:wrap">
+            <button class="btn-primary" onclick="obCopyLetter()">Copy letter</button>
+            <button class="btn-g" onclick="obOpenEmail()">Open in email</button>
+            <button class="btn-g" onclick="obMarkSent()">Mark as sent today</button>
+            <span class="hint" id="obCopyMsg" style="align-self:center"></span>
+          </div>
+          <div class="hint-text">"Open in email" can't attach files — add the Thrive overview deck in your mail app before sending. Review every letter before it goes out (Thrive AI policy: external content is reviewed by staff).</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="filter-bar">
+      <input type="text" id="obSearch" placeholder="Search board, county, contact…" style="min-width:240px" oninput="OB.search=this.value;renderBoardsTable()">
+      <select id="obStatusFilter" onchange="OB.status=this.value;renderBoardsTable()"></select>
+      <label style="font-size:12.5px;color:var(--ink-soft);display:flex;align-items:center;gap:6px"><input type="checkbox" id="obFootprint" onchange="OB.footprintOnly=this.checked;renderBoardsTable()"> Only boards where Thrive has staff</label>
+      <label style="font-size:12.5px;color:var(--ink-soft);display:flex;align-items:center;gap:6px"><input type="checkbox" id="obDueOnly" onchange="OB.dueOnly=this.checked;renderBoardsTable()"> Follow-up due</label>
+      <label style="font-size:12.5px;color:var(--ink-soft);display:flex;align-items:center;gap:6px"><input type="checkbox" id="obNoEmail" onchange="OB.noEmailOnly=this.checked;renderBoardsTable()"> No email on file</label>
+      <div class="spacer"></div>
+      <button class="btn-g" onclick="obClearFilters()">Clear</button>
+      <button class="btn-g" onclick="obCopyBcc()" title="Boards with an email that are still Not Contacted (e.g. Call List boards once you add their email)">Copy BCC list</button>
+      <button class="btn-g" onclick="obExportCsv()">Export CSV</button>
+    </div>
+
+    <div class="card" style="margin-bottom:18px">
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--rule);flex-wrap:wrap">
+        <b style="font-size:13px">Ohio board map</b><span class="hint">click a county to edit its board · bold outline = Thrive has staff there · faded = hidden by filters</span>
+        <div style="flex:1"></div>
+        <label class="hint" for="obMapMode">Color by</label>
+        <select id="obMapMode" onchange="obStyleMap()" style="border:1px solid var(--rule-strong);border-radius:5px;padding:5px 8px;font-size:12px;font-family:inherit;background:#fdfbf6;color:var(--ink)">
+          <option value="status">Outreach status</option><option value="contact">Contact info on file</option><option value="board">Board (who covers what)</option>
+        </select>
+      </div>
+      <div id="obMap" style="height:480px"></div>
+      <div class="legend" id="obLegend"></div>
+    </div>
+
+    <div class="form-card" id="obFormCard" style="display:none">
+      <h4 id="obFormTitle">Edit Board Contact</h4>
+      <div class="form-grid">
+        <div class="form-field"><label>Status</label><select id="obfStatus"></select></div>
+        <div class="form-field"><label>Contact Name</label><input type="text" id="obfContact" placeholder="e.g. Jane Smith"></div>
+        <div class="form-field"><label>Title</label><input type="text" id="obfTitle" placeholder="e.g. Executive Director / CEO"></div>
+        <div class="form-field"><label>Salutation</label><input type="text" id="obfSalutation" placeholder="e.g. Ms. Smith"></div>
+        <div class="form-field"><label>Email</label><input type="email" id="obfEmail"></div>
+        <div class="form-field"><label>Phone</label><input type="text" id="obfPhone"></div>
+        <div class="form-field"><label>Letter Sent</label><input type="date" id="obfSent"></div>
+        <div class="form-field"><label>Next Follow-up</label><input type="date" id="obfNext"></div>
+        <div class="form-field"><label>Owner</label><input type="text" id="obfOwner" placeholder="e.g. JL"></div>
+        <div class="form-field" id="obfConfirmWrap"><label>Contact info confirmed</label><label style="display:flex;gap:6px;align-items:center;font-size:12.5px;text-transform:none;letter-spacing:0;font-weight:500"><input type="checkbox" id="obfConfirmed"> Justin confirmed this contact</label></div>
+        <div class="form-field" style="grid-column:span 3"><label>Notes (board priorities, needs, what they said)</label><textarea id="obfNotes"></textarea></div>
+      </div>
+      <div class="form-actions">
+        <button class="btn-primary" onclick="obSaveBoard()">Save</button>
+        <button class="btn-g" onclick="obCloseForm()">Cancel</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="tbl-wrap">
+        <table class="tbl" id="obTable">
+          <thead><tr>
+            <th onclick="obSort('name')">Board <span class="sortI" id="obSI_name"></span></th>
+            <th onclick="obSort('counties')">Counties <span class="sortI" id="obSI_counties"></span></th>
+            <th onclick="obSort('presence')">Thrive Staff <span class="sortI" id="obSI_presence"></span></th>
+            <th onclick="obSort('status')">Status <span class="sortI" id="obSI_status"></span></th>
+            <th>Contact</th>
+            <th onclick="obSort('next')">Sent / Follow-up <span class="sortI" id="obSI_next"></span></th>
+            <th></th>
+          </tr></thead>
+          <tbody id="obTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <p class="map-note">Intro email + deck went to 21 boards on 11/4/26 (status Letter Sent, follow-up 11/18). <span class="ob-noemail" style="margin:0">☎ No email on file</span> = no public email found — call and add it in Edit.<br><b style="color:var(--bad)">*</b> = standing relationship — Justin to confirm the contact info (tick "Justin confirmed this contact" in Edit to clear it). Standing relationships are left off "Copy BCC list".<br>49 boards / 88 counties. Names, directors, emails and phones pulled from each board's public website, Nov 3 2026 — boards merge and rename (Huron joined Seneca-Ottawa-Sandusky-Wyandot as the North Central Behavioral Health Board on 7/1/26), so confirm on <a href="https://www.oacbha.org/mappage.php" target="_blank" rel="noopener">OACBHA's county board directory</a> before a mass mailing. "Thrive Staff" counts active providers in that board's counties from the roster.</p>
+  </div>
+
   <div class="footer-note">
     Internal use only · Leadership &amp; Business Development · Leads and referral notes are BD-entered — no client-level data<br>
-    Data source: shared Supabase <code>appdata</code> (<code>staff</code>, <code>pm_overrides</code>, <code>pd</code>, <code>bd_leads</code>, <code>bd_referrals</code>, <code>bd_goals</code>) · Thrive Peer Support Services
+    Data source: shared Supabase <code>appdata</code> (<code>staff</code>, <code>pm_overrides</code>, <code>pd</code>, <code>bd_leads</code>, <code>bd_referrals</code>, <code>bd_goals</code>, <code>bd_boards</code>) · Thrive Peer Support Services
   </div>
 </main>
 </div>
@@ -685,7 +829,7 @@ catch(e){ console.warn('Supabase client not initialized:', e); }
 // (step 1 of the staged appdata lockdown), and the read pulls only the six keys this
 // page uses. It used to pull the whole appdata table every 60s -- including
 // linkage_notes_raw (every note row with client numbers) and the PRS Worklist caseload.
-const BD_APPDATA_KEYS=['staff','pm_overrides','pd','bd_leads','bd_referrals','bd_goals'];
+const BD_APPDATA_KEYS=['staff','pm_overrides','pd','bd_leads','bd_referrals','bd_goals','bd_boards'];
 async function bdHeaders(extra){
   let token=SB_KEY;
   try{ const { data } = await sbClient.auth.getSession(); if(data && data.session) token=data.session.access_token; }catch(e){}
@@ -823,6 +967,8 @@ const COUNTY_COORDS={
   'lawrence':[38.5387,-82.6832],'scioto':[38.7412,-82.9438],'stark':[40.7967,-81.3785],
   'columbiana':[40.7967,-80.7373],'lorain':[41.3684,-82.1076],'hamilton':[39.1031,-84.5120],
   'warren':[39.4381,-84.2033],'lucas':[41.6528,-83.5379],'adams':[38.8354,-83.4738],
+  // Leads seeded from the BD workbook use the combined region label -- place it between the two counties.
+  'trumbull/mahoning':[41.17,-80.73],'trumbull / mahoning':[41.17,-80.73],
 };
 const ZIP_CACHE_KEY='thrive_zip_geocode_cache_v1';
 let ZIP_CACHE={};
@@ -2466,6 +2612,385 @@ function renderDeliverablesTab(){
 document.getElementById('drRange').addEventListener('change', e=>{ DR.range=e.target.value; renderDeliverablesTab(); });
 
 // ══════════════════════════════════════════════════════════════════
+// COUNTY BOARDS TAB (11/3/26) — Ohio's 49 ADAMH / MHRS / behavioral health
+// boards (all 88 counties) as a BD outreach list. Roster is static below;
+// per-board tracking + the shared intro-letter template live in appdata key
+// 'bd_boards' as { tracking:{[boardId]:{...}}, template:{subject,body} }.
+// Each board carries a 'seed' of public contact info (ED name/title, email,
+// phone, address, a 'verify' note) pulled from board websites 11/3/26 --
+// see obTrack() for how saved edits override it.
+// Websites left blank where one couldn't be confirmed — the row links a web
+// search instead of guessing a URL.
+// ══════════════════════════════════════════════════════════════════
+const OHIO_BOARDS=[
+  {"id": "fra", "name": "ADAMH Board of Franklin County", "counties": ["Franklin"], "web": "https://adamhfranklin.org/", "seed": {"contactName": "Erika Clark Jones", "contactTitle": "CEO", "salutation": "Erika Clark Jones", "email": "", "emailType": "", "phone": "(614) 224-1057", "address": "447 E. Broad St., Columbus, OH 43215", "verify": "No email published — contact form only", "source": "https://adamhfranklin.org/about-us/adamh-staff-directory/"}},
+  {"id": "cuy", "name": "ADAMHS Board of Cuyahoga County", "counties": ["Cuyahoga"], "web": "https://www.adamhscc.org/", "seed": {"contactName": "Jason Joyce", "contactTitle": "President & CEO", "salutation": "Jason Joyce", "email": "", "emailType": "", "phone": "(216) 241-3400", "address": "2012 W. 25th St., 6th Floor, Cleveland, OH 44113", "verify": "CEO confirmed in an Oct 2026 Kent State profile. No email published", "source": "https://plainpress.blog/2025/11/01/adamhs-board-names-new-executive-director/", "status": "Standing Relationship"}},
+  {"id": "eri", "name": "ADAMHS Board of Erie County", "counties": ["Erie"], "web": "https://adamhserie.org/", "seed": {"contactName": "Diane Taylor", "contactTitle": "Executive Director", "salutation": "Diane Taylor", "email": "diane@adamhserie.org", "emailType": "Director", "phone": "(419) 627-1908", "address": "2900 Columbus Ave., 2nd Floor, Sandusky, OH 44870", "verify": "", "source": "https://adamhserie.org/contact-us/", "status": "Letter Sent", "sentDate": "2026-11-04", "nextFollowUp": "2026-11-18", "owner": "JL", "notes": "Intro email + board overview deck sent 11/4/26 from Justin (group BCC send)."}},
+  {"id": "mvp", "name": "ADAMHS Board of Mercer, Van Wert & Paulding Counties", "counties": ["Mercer", "Van Wert", "Paulding"], "web": "https://tricountyadamhs.org/", "seed": {"contactName": "", "contactTitle": "", "salutation": "", "email": "", "emailType": "", "phone": "(419) 238-5464", "address": "1142 Westwood Dr., Van Wert, OH 45891", "verify": "Director not found — site blocks automated reads", "source": "https://www.ohiolegalhelp.org/resource/tri-county-adamhs-board-mercer-van-wert-paulding"}},
+  {"id": "tuc", "name": "ADAMHS Board of Tuscarawas & Carroll Counties", "counties": ["Tuscarawas", "Carroll"], "web": "https://adamhtc.org/", "seed": {"contactName": "Natalie Bollon", "contactTitle": "Executive Director", "salutation": "Natalie Bollon", "email": "office@adamhtc.org", "emailType": "General inbox", "phone": "(330) 364-6488", "address": "119 Garland Dr. SW, New Philadelphia, OH 44663", "verify": "", "source": "https://adamhtc.org/contact/", "status": "Letter Sent", "sentDate": "2026-11-04", "nextFollowUp": "2026-11-18", "owner": "JL", "notes": "Intro email + board overview deck sent 11/4/26 from Justin (group BCC send)."}},
+  {"id": "atb", "name": "Ashtabula County ADAMH Board", "counties": ["Ashtabula"], "web": "https://www.ashtabulamhrs.org/", "seed": {"contactName": "Kaitie Park Hart", "contactTitle": "Executive Director", "salutation": "Kaitie Park Hart", "email": "kpark@ashtabulamhrs.org", "emailType": "Director", "phone": "(440) 992-3121", "address": "4717 Main Ave., Ashtabula, OH 44004", "verify": "", "source": "https://www.ashtabulamhrs.org/leadership/", "status": "Letter Sent", "sentDate": "2026-11-04", "nextFollowUp": "2026-11-18", "owner": "JL", "notes": "Intro email + board overview deck sent 11/4/26 from Justin (group BCC send)."}},
+  {"id": "ahv", "name": "Athens-Hocking-Vinton 317 Board", "counties": ["Athens", "Hocking", "Vinton"], "web": "https://www.317board.org/", "seed": {"contactName": "Diane Pfaff", "contactTitle": "Executive Director", "salutation": "Diane Pfaff", "email": "", "emailType": "", "phone": "(740) 593-3177", "address": "7990 Dairy Lane, Athens, OH 45701", "verify": "No email published — contact form only; call for email", "source": "https://www.317board.org/board-staff/"}},
+  {"id": "als", "name": "Behavioral Health Board of Adams, Lawrence & Scioto Counties", "counties": ["Adams", "Lawrence", "Scioto"], "web": "https://adamhsals.org/", "seed": {"contactName": "Susan Shultz", "contactTitle": "Executive Director", "salutation": "Susan Shultz", "email": "", "emailType": "", "phone": "(740) 354-5648", "address": "919 7th St., Portsmouth, OH 45662", "verify": "Director name from an undated local news story — confirm she is still ED. Site blocks automated reads", "source": "https://www.ohiolegalhelp.org/resource/adams-lawrence-scioto-adamh-board", "status": "Standing Relationship"}},
+  {"id": "brn", "name": "Brown County Board of Mental Health & Addiction Services", "counties": ["Brown"], "web": "http://www.bcmhas.org/", "seed": {"contactName": "Deanna J. Vietze", "contactTitle": "Executive Director", "salutation": "Deanna J. Vietze", "email": "", "emailType": "", "phone": "(937) 378-3504", "address": "85 Banting Dr., Georgetown, OH 45121", "verify": "Email hidden on county site — call for email", "source": "https://browncountyohio.gov/index.php/board-of-alcohol-drug-mental"}},
+  {"id": "but", "name": "Butler County Mental Health & Addiction Recovery Services Board", "counties": ["Butler"], "web": "https://mhars.bcohio.gov/", "seed": {"contactName": "Scott Rasmus", "contactTitle": "Executive Director", "salutation": "Dr. Rasmus", "email": "Scott.Rasmus@bcohio.gov", "emailType": "Director", "phone": "(513) 860-9240", "address": "5963 Boymel Dr., Fairfield, OH 45014", "verify": "", "source": "https://mhars.bcohio.gov/staff_directory/index.php", "status": "Letter Sent", "sentDate": "2026-11-04", "nextFollowUp": "2026-11-18", "owner": "JL", "notes": "Intro email + board overview deck sent 11/4/26 from Justin (group BCC send)."}},
+  {"id": "clr", "name": "Clermont County Mental Health & Recovery Board", "counties": ["Clermont"], "web": "https://ccmhrb.org/", "seed": {"contactName": "", "contactTitle": "", "salutation": "", "email": "", "emailType": "", "phone": "", "address": "2337 Clermont Center Dr., Batavia, OH 45103", "verify": "Site blocks automated reads — look up director, email and phone manually", "source": "https://ccmhrb.org/"}},
+  {"id": "col", "name": "Columbiana County Mental Health & Recovery Services Board", "counties": ["Columbiana"], "web": "https://www.ccmhrsb.org/", "seed": {"contactName": "Lori Colian", "contactTitle": "Executive Director", "salutation": "Lori Colian", "email": "lcolian@ccmhrsb.org", "emailType": "Director", "phone": "(330) 424-0195", "address": "27 Vista Dr., P.O. Box 500, Lisbon, OH 44432", "verify": "", "source": "https://www.ccmhrsb.org/about/staff-and-board", "status": "Letter Sent", "sentDate": "2026-11-04", "nextFollowUp": "2026-11-18", "owner": "JL", "notes": "Intro email + board overview deck sent 11/4/26 from Justin (group BCC send)."}},
+  {"id": "sum", "name": "County of Summit ADM Board", "counties": ["Summit"], "web": "https://admboard.org/", "seed": {"contactName": "", "contactTitle": "", "salutation": "", "email": "adm@admboard.org", "emailType": "General inbox", "phone": "(330) 762-3500", "address": "1867 W. Market St., Suite B2, Akron, OH 44313", "verify": "CEO not named on pages read — look up before sending", "source": "https://admboard.org/about/contact-us/", "status": "Letter Sent", "sentDate": "2026-11-04", "nextFollowUp": "2026-11-18", "owner": "JL", "notes": "Intro email + board overview deck sent 11/4/26 from Justin (group BCC send)."}},
+  {"id": "crm", "name": "Crawford-Marion ADAMH Board", "counties": ["Crawford", "Marion"], "web": "https://cmadamhoh.gov/", "seed": {"contactName": "Bradley M. DeCamp", "contactTitle": "Executive Director", "salutation": "Dr. DeCamp", "email": "", "emailType": "", "phone": "(740) 387-8531", "address": "P.O. Box 406, Marion, OH 43301", "verify": "No email published — call for email", "source": "https://cmadamhoh.gov/contact_us/"}},
+  {"id": "dlm", "name": "Delaware-Morrow Mental Health & Recovery Services Board", "counties": ["Delaware", "Morrow"], "web": "https://dmmhrsb.org/", "seed": {"contactName": "Deanna Brant", "contactTitle": "Executive Director", "salutation": "Deanna Brant", "email": "", "emailType": "", "phone": "(740) 368-1740", "address": "40 N. Sandusky St., Suite 301, Delaware, OH 43015", "verify": "\"Email Deanna\" link on site — open the About page to get the address", "source": "https://dmmhrsb.org/about"}},
+  {"id": "fai", "name": "Fairfield County ADAMH Board", "counties": ["Fairfield"], "web": "http://www.fairfieldadamh.org/", "seed": {"contactName": "Marcy Fields", "contactTitle": "Executive Director", "salutation": "Marcy Fields", "email": "", "emailType": "", "phone": "(740) 654-0829", "address": "108 W. Main St., Suite A, Lancaster, OH 43130", "verify": "Name from a 2024 news story — confirm. Contact form only", "source": "https://www.aol.com/fairfield-county-adamh-board-seeks-100138056.html"}},
+  {"id": "dfhw", "name": "Four County ADAMHS Board", "counties": ["Defiance", "Fulton", "Henry", "Williams"], "web": "https://fourcountyadamhs.com/", "seed": {"contactName": "Tonie Long", "contactTitle": "CEO", "salutation": "Tonie Long", "email": "", "emailType": "", "phone": "(419) 267-3355", "address": "T-761 State Route 66, Archbold, OH 43502", "verify": "No email published — call x1", "source": "https://fourcountyadamhs.com/board-staff/"}},
+  {"id": "gjm", "name": "Gallia-Jackson-Meigs ADAMHS Board", "counties": ["Gallia", "Jackson", "Meigs"], "web": "https://gjmboard.org/", "seed": {"contactName": "Robin Harris", "contactTitle": "Executive Director", "salutation": "Robin Harris", "email": "robin_harris@gjmboard.org", "emailType": "Director", "phone": "(740) 446-3022", "address": "53 Shawnee Lane, Gallipolis, OH 45631", "verify": "", "source": "https://gjmboard.org/board-staff", "status": "Letter Sent", "sentDate": "2026-11-04", "nextFollowUp": "2026-11-18", "owner": "JL", "notes": "Intro email + board overview deck sent 11/4/26 from Justin (group BCC send)."}},
+  {"id": "gea", "name": "Geauga County Board of Mental Health & Recovery Services", "counties": ["Geauga"], "web": "https://www.geauga.org/", "seed": {"contactName": "Christine Lakomiak", "contactTitle": "Executive Director", "salutation": "Christine Lakomiak", "email": "clakomiak@geauga.org", "emailType": "Director", "phone": "(440) 285-2282", "address": "13244 Ravenna Rd., Chardon, OH 44024", "verify": "", "source": "https://www.geauga.org/staff-members/", "status": "Letter Sent", "sentDate": "2026-11-04", "nextFollowUp": "2026-11-18", "owner": "JL", "notes": "Intro email + board overview deck sent 11/4/26 from Justin (group BCC send)."}},
+  {"id": "ham", "name": "Hamilton County Mental Health & Recovery Services Board", "counties": ["Hamilton"], "web": "https://www.hcmhrsb.org/", "seed": {"contactName": "LaNora Godfrey", "contactTitle": "President & CEO", "salutation": "LaNora Godfrey", "email": "lanorag@hcmhrsb.org", "emailType": "Director", "phone": "(513) 946-8600", "address": "2350 Auburn Ave., Cincinnati, OH 45219", "verify": "", "source": "https://www.hcmhrsb.org/about-us/management/", "status": "Individual Outreach", "notes": "Send an individual email, not the BCC blast: 2027 workforce dollars and building relationships with Hamilton County agencies (e.g. Bethany House)."}},
+  {"id": "han", "name": "Hancock County ADAMHS Board", "counties": ["Hancock"], "web": "https://www.yourpathtohealth.org/", "seed": {"contactName": "Zachary Thomas", "contactTitle": "Executive Director", "salutation": "Zachary Thomas", "email": "ZThomas@YourPathToHealth.org", "emailType": "Director", "phone": "(419) 424-1985", "address": "438 Carnahan Ave., Findlay, OH 45840", "verify": "", "source": "https://www.yourpathtohealth.org/adamhs/board-staff/", "status": "Letter Sent", "sentDate": "2026-11-04", "nextFollowUp": "2026-11-18", "owner": "JL", "notes": "Intro email + board overview deck sent 11/4/26 from Justin (group BCC send)."}},
+  {"id": "jef", "name": "Jefferson County Prevention & Recovery Board", "counties": ["Jefferson"], "web": "https://jcprb.org/", "seed": {"contactName": "William J. Holt", "contactTitle": "Executive Director", "salutation": "William J. Holt", "email": "info@jcprb.org", "emailType": "General inbox", "phone": "(740) 282-1300", "address": "524 Madison Ave., Steubenville, OH 43952", "verify": "", "source": "https://jcprb.org/board-and-staff/", "status": "Letter Sent", "sentDate": "2026-11-04", "nextFollowUp": "2026-11-18", "owner": "JL", "notes": "Intro email + board overview deck sent 11/4/26 from Justin (group BCC send)."}},
+  {"id": "lak", "name": "Lake County ADAMHS Board", "counties": ["Lake"], "web": "https://www.helpthatworks.us/", "seed": {"contactName": "Kim Fraser", "contactTitle": "Executive Director", "salutation": "Kim Fraser", "email": "kfraser@lakeadamhs.org", "emailType": "Director", "phone": "(440) 350-3117", "address": "9237 Mentor Ave., Unit B, Mentor, OH 44060", "verify": "Thrive already works in Lake — consider a personal note instead of the mass send", "source": "https://www.helpthatworks.us/about-us/", "status": "Letter Sent", "sentDate": "2026-11-04", "nextFollowUp": "2026-11-18", "owner": "JL", "notes": "Intro email + board overview deck sent 11/4/26 from Justin (group BCC send)."}},
+  {"id": "lch", "name": "Logan-Champaign Counties MHDAS Board", "counties": ["Logan", "Champaign"], "web": "https://www.mhdas.org/", "seed": {"contactName": "Adam Sorensen", "contactTitle": "Executive Director", "salutation": "Dr. Sorensen", "email": "info@mhdas.org", "emailType": "General inbox", "phone": "(937) 465-1045", "address": "1521 N. Detroit St., Suite A, West Liberty, OH 43357", "verify": "Site lists both Adam Sorensen and David Higgins as ED — confirm before sending", "source": "http://www.mhdas.org/staff.html", "status": "Letter Sent", "sentDate": "2026-11-04", "nextFollowUp": "2026-11-18", "owner": "JL", "notes": "Intro email + board overview deck sent 11/4/26 from Justin (group BCC send)."}},
+  {"id": "mah", "name": "Mahoning County Mental Health & Recovery Board", "counties": ["Mahoning"], "web": "https://www.mahoningcountyoh.gov/912/Mental-Health-Recovery-Board", "seed": {"contactName": "Duane Piccirilli", "contactTitle": "Executive Director", "salutation": "Duane Piccirilli", "email": "dpiccirilli@mahoningcountyoh.gov", "emailType": "Director", "phone": "(330) 746-2959", "address": "222 W. Federal St., Suite 201, Youngstown, OH 44503", "verify": "", "source": "https://www.mahoningcountyoh.gov/914/Staff", "status": "Standing Relationship"}},
+  {"id": "med", "name": "Medina County ADAMH Board", "counties": ["Medina"], "web": "https://medinamentalhealth.com/", "seed": {"contactName": "", "contactTitle": "", "salutation": "", "email": "", "emailType": "", "phone": "(330) 723-9642", "address": "246 Northland Dr., Suite 100, Medina, OH 44256", "verify": "Director not found — site blocks automated reads", "source": "https://www.ohiolegalhelp.org/resource/medina-county-adamh-board"}},
+  {"id": "ash", "name": "Mental Health & Recovery Board of Ashland County", "counties": ["Ashland"], "web": "https://www.ashlandmhrb.org/", "seed": {"contactName": "Patty Pawlikowski", "contactTitle": "Interim Executive Director", "salutation": "Patty Pawlikowski", "email": "ashmhrb@ashlandmhrb.org", "emailType": "General inbox", "phone": "(419) 281-3139", "address": "1605 County Road 1095, Ashland, OH 44805", "verify": "Interim ED. Staff page lists pwalton@ashlandmhrb.org next to her name — doesn't match, so general inbox used", "source": "https://www.ashlandmhrb.org/staff/", "status": "Letter Sent", "sentDate": "2026-11-04", "nextFollowUp": "2026-11-18", "owner": "JL", "notes": "Intro email + board overview deck sent 11/4/26 from Justin (group BCC send)."}},
+  {"id": "bhm", "name": "Mental Health & Recovery Board of Belmont, Harrison & Monroe Counties", "counties": ["Belmont", "Harrison", "Monroe"], "web": "https://bhmboard.org/", "seed": {"contactName": "Lisa Ward", "contactTitle": "Executive Director", "salutation": "Lisa Ward", "email": "lisaw@bhmboard.org", "emailType": "Director", "phone": "(740) 695-9998", "address": "104 Newell Ave., St. Clairsville, OH 43950", "verify": "", "source": "https://www.bhmboard.org/staff-directory/", "status": "Standing Relationship"}},
+  {"id": "cgm", "name": "Mental Health & Recovery Board of Clark, Greene & Madison Counties", "counties": ["Clark", "Greene", "Madison"], "web": "https://www.mhrb.org/", "seed": {"contactName": "Greta Mayer", "contactTitle": "CEO", "salutation": "Greta Mayer", "email": "", "emailType": "", "phone": "(937) 322-0648", "address": "1055 E. High St., Springfield, OH 45505", "verify": "No email published — CEO is ext. 103", "source": "https://www.mhrb.org/contact/", "status": "Standing Relationship"}},
+  {"id": "por", "name": "Mental Health & Recovery Board of Portage County", "counties": ["Portage"], "web": "https://www.mental-health-recovery.org/", "seed": {"contactName": "Aubrey Lattimer", "contactTitle": "Executive Director", "salutation": "Aubrey Lattimer", "email": "alattimer@mhrbpc.org", "emailType": "Director", "phone": "(330) 673-1756", "address": "155 E. Main St., Kent, OH 44240", "verify": "", "source": "https://www.mental-health-recovery.org/members-staff", "status": "Letter Sent", "sentDate": "2026-11-04", "nextFollowUp": "2026-11-18", "owner": "JL", "notes": "Intro email + board overview deck sent 11/4/26 from Justin (group BCC send)."}},
+  {"id": "uni", "name": "Mental Health & Recovery Board of Union County", "counties": ["Union"], "web": "https://www.mhrbuc.org/", "seed": {"contactName": "Holly Zweizig", "contactTitle": "Executive Director", "salutation": "Holly Zweizig", "email": "info@mhrbuc.org", "emailType": "General inbox", "phone": "(937) 642-1212", "address": "131 N. Main St., Suite A, Marysville, OH 43040", "verify": "", "source": "https://www.mhrbuc.org/staff", "status": "Letter Sent", "sentDate": "2026-11-04", "nextFollowUp": "2026-11-18", "owner": "JL", "notes": "Intro email + board overview deck sent 11/4/26 from Justin (group BCC send)."}},
+  {"id": "wah", "name": "Mental Health & Recovery Board of Wayne & Holmes Counties", "counties": ["Wayne", "Holmes"], "web": "https://www.whmhrb.org/", "seed": {"contactName": "Nicole Williams", "contactTitle": "Executive Director", "salutation": "Nicole Williams", "email": "", "emailType": "", "phone": "(330) 264-2527", "address": "2200 Benden Dr., Suite A1, Wooster, OH 44691", "verify": "Contact form only — call for email", "source": "https://www.whmhrb.org/about-us"}},
+  {"id": "aah", "name": "Mental Health & Recovery Services Board of Allen, Auglaize & Hardin Counties", "counties": ["Allen", "Auglaize", "Hardin"], "web": "https://www.wecarepeople.org/", "seed": {"contactName": "", "contactTitle": "", "salutation": "", "email": "info@wecarepeople.org", "emailType": "General inbox", "phone": "(419) 222-5120", "address": "528 W. Market St., Lima, OH 45801", "verify": "Director not listed online — general inbox only", "source": "https://www.wecarepeople.org/contact/", "status": "Standing Relationship"}},
+  {"id": "luc", "name": "Mental Health & Recovery Services Board of Lucas County", "counties": ["Lucas"], "web": "https://lcmentallywell.com/", "seed": {"contactName": "Scott Sylak", "contactTitle": "Executive Director", "salutation": "Scott Sylak", "email": "webmail@lcmhrsb.oh.gov", "emailType": "General inbox", "phone": "(419) 213-4600", "address": "333 N. Summit St., Suite 1401, Toledo, OH 43604", "verify": "Staff inbox — site asks for the staff member's name in the subject line", "source": "https://lcmentallywell.com/en", "status": "Standing Relationship"}},
+  {"id": "ric", "name": "Mental Health & Recovery Services Board of Richland County", "counties": ["Richland"], "web": "https://richlandmentalhealth.com/", "seed": {"contactName": "Aubrie Hall", "contactTitle": "Executive Director", "salutation": "Aubrie Hall", "email": "", "emailType": "", "phone": "(419) 774-5811", "address": "87 E. First St., Suite L, Mansfield, OH 44902", "verify": "Contact form only — call for email", "source": "https://richlandmentalhealth.com/board-of-directors-and-board-staff/"}},
+  {"id": "lkx", "name": "Mental Health & Recovery for Licking & Knox Counties", "counties": ["Licking", "Knox"], "web": "http://www.mhrlk.org/", "seed": {"contactName": "", "contactTitle": "", "salutation": "", "email": "", "emailType": "", "phone": "(740) 522-1234", "address": "", "verify": "Website unreachable — look up manually (phone from 2018 list)", "source": "https://thencc.edu/other-county-behavioral-health-boards/"}},
+  {"id": "wcl", "name": "Mental Health Recovery Board Serving Warren & Clinton Counties", "counties": ["Warren", "Clinton"], "web": "https://www.mhrbwcc.org/", "seed": {"contactName": "Amy Fornshell", "contactTitle": "Executive Director", "salutation": "Amy Fornshell", "email": "afornshell@mhrbwcc.org", "emailType": "Director", "phone": "(513) 695-1695", "address": "", "verify": "", "source": "https://www.mhrbwcc.org/about-us/staff/", "status": "Standing Relationship"}},
+  {"id": "lor", "name": "Mental Health, Addiction & Recovery Services Board of Lorain County", "counties": ["Lorain"], "web": "https://mharslc.org/", "seed": {"contactName": "Michael Doud", "contactTitle": "Executive Director", "salutation": "Michael Doud", "email": "mdoud@mharslc.org", "emailType": "Director", "phone": "(440) 233-2020", "address": "1173 North Ridge Rd. East, Suite 101, Lorain, OH 44055", "verify": "", "source": "https://mharslc.org/who-we-are/", "status": "Standing Relationship"}},
+  {"id": "put", "name": "Mental Health, Alcohol & Drug Addiction Recovery Board of Putnam County", "counties": ["Putnam"], "web": "https://www.pcadamhsbd.org/", "seed": {"contactName": "", "contactTitle": "", "salutation": "", "email": "", "emailType": "", "phone": "(419) 523-0027", "address": "835 N. Locust St., P.O. Box 410, Ottawa, OH 45875", "verify": "Director not listed online; phone differs between sources (523-0027 on board site vs 528-0027) — call", "source": "https://www.pcadamhsbd.org/contact-us/"}},
+  {"id": "mon", "name": "Montgomery County ADAMHS Board", "counties": ["Montgomery"], "web": "https://www.mcadamhs.org/", "seed": {"contactName": "Chrissy Sanders", "contactTitle": "Interim Executive Director", "salutation": "Chrissy Sanders", "email": "", "emailType": "", "phone": "(937) 443-0416", "address": "409 E. Monument Ave., Suite 102, Dayton, OH 45402", "verify": "Still interim ED (also CFO); permanent ED posting from May 2026 not yet filled per site", "source": "https://www.mcadamhs.org/about_us/contact/staff_directory.php", "status": "Standing Relationship"}},
+  {"id": "mus", "name": "Muskingum Area Board of Mental Health & Recovery Services", "counties": ["Coshocton", "Guernsey", "Morgan", "Muskingum", "Noble", "Perry"], "web": "https://www.mhrs.org/", "seed": {"contactName": "Misty Cromwell", "contactTitle": "Executive Director", "salutation": "Misty Cromwell", "email": "", "emailType": "", "phone": "(740) 454-8557", "address": "1500 Coal Run Rd., Zanesville, OH 43701", "verify": "Only email on site (jamiem@mhrs.org) is unlabeled — call to confirm the right address", "source": "https://www.mhrs.org/about"}},
+  {"id": "ncb", "name": "North Central Behavioral Health Board", "counties": ["Huron", "Seneca", "Ottawa", "Sandusky", "Wyandot"], "web": "https://ncbhb.org/", "seed": {"contactName": "Mircea Handru", "contactTitle": "Executive Director", "salutation": "Mircea Handru", "email": "administrator@ncbhb.org", "emailType": "General inbox", "phone": "(419) 448-0640", "address": "1200 N. State Route 53, Tiffin, OH 44883", "verify": "NEW board formed 7/1/26 (Huron merged with Seneca-Ottawa-Sandusky-Wyandot)", "source": "https://ncbhb.org/new-5-county-district-named-north-central-behavioral-health-board/", "status": "Letter Sent", "sentDate": "2026-11-04", "nextFollowUp": "2026-11-18", "owner": "JL", "notes": "Intro email + board overview deck sent 11/4/26 from Justin (group BCC send)."}},
+  {"id": "pvb", "name": "Paint Valley ADAMH Board", "counties": ["Fayette", "Highland", "Pickaway", "Pike", "Ross"], "web": "https://pvadamh.org/", "seed": {"contactName": "Melanie Bice", "contactTitle": "Executive Director", "salutation": "Melanie Bice", "email": "contactus@pvadamh.org", "emailType": "General inbox", "phone": "(740) 773-2283", "address": "394 Chestnut St., Chillicothe, OH 45601", "verify": "", "source": "https://pvadamh.org/board-staff/", "status": "Standing Relationship"}},
+  {"id": "pre", "name": "Preble County Mental Health & Recovery Board", "counties": ["Preble"], "web": "https://www.pcmhrb.org/", "seed": {"contactName": "Amy Raynes", "contactTitle": "Executive Director", "salutation": "Amy Raynes", "email": "amy.raynes@pcmhrb.org", "emailType": "Director", "phone": "(937) 456-6827", "address": "100 E. Somers St., Eaton, OH 45320", "verify": "", "source": "https://www.pcmhrb.org/staff-members/", "status": "Letter Sent", "sentDate": "2026-11-04", "nextFollowUp": "2026-11-18", "owner": "JL", "notes": "Intro email + board overview deck sent 11/4/26 from Justin (group BCC send)."}},
+  {"id": "sta", "name": "Stark County Mental Health & Addiction Recovery (StarkMHAR)", "counties": ["Stark"], "web": "https://starkmhar.org/", "seed": {"contactName": "John R. Aller", "contactTitle": "Executive Director", "salutation": "John R. Aller", "email": "info@StarkMHAR.org", "emailType": "General inbox", "phone": "(330) 455-6644", "address": "121 Cleveland Ave. SW, Canton, OH 44702", "verify": "", "source": "https://starkmhar.org/about/staff-directory/", "status": "Letter Sent", "sentDate": "2026-11-04", "nextFollowUp": "2026-11-18", "owner": "JL", "notes": "Intro email + board overview deck sent 11/4/26 from Justin (group BCC send)."}},
+  {"id": "mds", "name": "Tri-County Board of Recovery & Mental Health Services", "counties": ["Miami", "Darke", "Shelby"], "web": "https://www.tcbmds.org/", "seed": {"contactName": "Terri Becker", "contactTitle": "Executive Director", "salutation": "Terri Becker", "email": "BeckerT@tcbmds.org", "emailType": "Director", "phone": "(937) 335-7727", "address": "1280 N. County Road 25A, Suite 1, Troy, OH 45373", "verify": "", "source": "https://www.tcbmds.org/staff.html", "status": "Letter Sent", "sentDate": "2026-11-04", "nextFollowUp": "2026-11-18", "owner": "JL", "notes": "Intro email + board overview deck sent 11/4/26 from Justin (group BCC send)."}},
+  {"id": "tru", "name": "Trumbull County Mental Health & Recovery Board", "counties": ["Trumbull"], "web": "https://www.trumbullmhrb.org/", "seed": {"contactName": "April J. Caraway", "contactTitle": "Executive Director", "salutation": "April J. Caraway", "email": "", "emailType": "", "phone": "(330) 675-2765", "address": "4076 Youngstown Rd. SE, Suite 201, Warren, OH 44484", "verify": "No email published — ED is ext. 107", "source": "https://www.trumbullmhrb.org/mhrb_contactus.html", "status": "Standing Relationship"}},
+  {"id": "was", "name": "Washington County Behavioral Health Board", "counties": ["Washington"], "web": "https://wcbhb.org/", "seed": {"contactName": "George Goddard", "contactTitle": "Executive Director", "salutation": "George Goddard", "email": "info@wcbhb.org", "emailType": "General inbox", "phone": "(740) 374-6990", "address": "1115 Gilman Ave., 2nd Floor, Marietta, OH 45750", "verify": "", "source": "https://wcbhb.org/contact/", "status": "Letter Sent", "sentDate": "2026-11-04", "nextFollowUp": "2026-11-18", "owner": "JL", "notes": "Intro email + board overview deck sent 11/4/26 from Justin (group BCC send)."}},
+  {"id": "woo", "name": "Wood County ADAMHS Board", "counties": ["Wood"], "web": "https://www.wcadamh.org/", "seed": {"contactName": "Amanda Kern", "contactTitle": "Executive Director", "salutation": "Amanda Kern", "email": "wcadamhs@wcadamh.org", "emailType": "General inbox", "phone": "(419) 352-8475", "address": "745 Haskins Rd., Suite H, Bowling Green, OH 43402", "verify": "Site's \"Email Amanda\" link goes to the general inbox", "source": "https://www.wcadamh.org/contact", "status": "Letter Sent", "sentDate": "2026-11-04", "nextFollowUp": "2026-11-18", "owner": "JL", "notes": "Intro email + board overview deck sent 11/4/26 from Justin (group BCC send)."}},
+];
+const OB_STATUSES=['Standing Relationship','Individual Outreach','Not Contacted','Letter Sent','Follow-up Needed','Meeting Scheduled','In Discussion','Partner','Not a Fit'];
+const OB_STATUS_CLS={'Standing Relationship':'good','Individual Outreach':'todo','Not Contacted':'neutral','Letter Sent':'todo','Follow-up Needed':'warn','Meeting Scheduled':'good','In Discussion':'good','Partner':'good','Not a Fit':'bad'};
+const OB_DEFAULT_TEMPLATE={
+  subject:'Introduction: Thrive Peer Recovery Services and {{board_name}}',
+  body:
+`Dear {{salutation}},
+
+My name is Justin Larson, and I am the Vice President of Engagement and Relations at Thrive Peer Recovery Services. I'm writing to introduce myself and our organization, and to ask for a brief conversation at your convenience.
+
+Thrive is a CARF-accredited peer recovery support organization. Our peer supporters bring their own lived experience of recovery to the people we serve, meeting them in the community, in hospitals and emergency departments, in courts and jails, and through our warmline. We help people connect to treatment, stay engaged after discharge, and build the supports that keep recovery going.
+
+Your board plays a central role in shaping the mental health and addiction services available in {{county_phrase}}. I would welcome the chance to learn about your board's current priorities, your provider network, and where you see the greatest needs today, and to explore whether Thrive's peer services could support that work.
+
+I've attached a short overview of Thrive; my contact information is at the end of the deck. Would you have 20 to 30 minutes in the coming weeks for a call or a visit? I'm happy to work around your schedule.
+
+Thank you for your time and for the work your board does for your community. I look forward to connecting.
+
+Sincerely,
+
+{{sender_name}}
+VP of Engagement and Relations
+Thrive Peer Recovery Services
+216-220-8774 x709
+jlarson@thrivepeersupport.com
+www.ThrivePeerSupport.com`
+};
+let OB_DATA={ tracking:{}, template:null };
+let OB={ search:'', status:'', footprintOnly:false, dueOnly:false, noEmailOnly:false };
+let obSortState={ key:'presence', dir:'desc' };
+let OB_EDIT_ID=null;
+
+function obNormCounty(c){ return String(c||'').toLowerCase().replace(/\s+county$/,'').trim(); }
+function obTemplate(){ return (OB_DATA.template && OB_DATA.template.body) ? OB_DATA.template : OB_DEFAULT_TEMPLATE; }
+// Saved tracking wins field-by-field over the researched seed (11/3/26 public-website pull),
+// so an edit in the form replaces the seed value, and a blank seed never hides saved data.
+function obTrack(id){
+  const b=OHIO_BOARDS.find(x=>x.id===id); const seed=(b&&b.seed)||{}; const t=OB_DATA.tracking[id]||{};
+  const out={...seed}; Object.keys(t).forEach(k=>{ if(t[k]!==undefined && t[k]!=='') out[k]=t[k]; });
+  return out;
+}
+function obStatus(id){ return obTrack(id).status || 'Not Contacted'; }
+function obPresence(b){
+  const want=new Set(b.counties.map(obNormCounty));
+  return (ALL_COUNTY_ROWS||[]).filter(r=>want.has(obNormCounty(r.county))).reduce((s,r)=>s+((r.providers||[]).length),0);
+}
+function obCountyPhrase(b){
+  const c=b.counties;
+  if(c.length===1) return c[0]+' County';
+  if(c.length===2) return c[0]+' and '+c[1]+' Counties';
+  return c.slice(0,-1).join(', ')+', and '+c[c.length-1]+' Counties';
+}
+function obSalutation(b){
+  const t=obTrack(b.id);
+  if(t.salutation) return t.salutation;
+  if(t.contactName) return t.contactName;
+  return 'Executive Director';
+}
+function obMerge(text,b){
+  return String(text||'')
+    .replace(/\{\{salutation\}\}/g, obSalutation(b))
+    .replace(/\{\{board_name\}\}/g, b.name)
+    .replace(/\{\{county_phrase\}\}/g, obCountyPhrase(b))
+    .replace(/\{\{sender_name\}\}/g, 'Justin Larson');
+}
+async function obPersist(prev){
+  const ok=await sbUpsertAppdata('bd_boards', OB_DATA);
+  if(!ok && prev){ OB_DATA=prev; renderBoardsTab(); }
+  return ok;
+}
+
+// ---------- letter ----------
+function obToggleLetter(){
+  const c=document.getElementById('obLetterCard'); const show=c.style.display==='none';
+  c.style.display=show?'':'none';
+  document.getElementById('obLetterToggle').textContent=show?'Hide letter':'Show letter';
+  if(show){ obFillTemplateFields(); obRenderPreview(); }
+}
+function obFillTemplateFields(){
+  const t=obTemplate();
+  document.getElementById('obTplSubject').value=t.subject||'';
+  document.getElementById('obTplBody').value=t.body||'';
+}
+async function obSaveTemplate(){
+  const prev=JSON.parse(JSON.stringify(OB_DATA));
+  OB_DATA.template={ subject:document.getElementById('obTplSubject').value, body:document.getElementById('obTplBody').value, updatedBy:currentReviewerName, updatedAt:new Date().toISOString() };
+  if(await obPersist(prev)){ obRenderPreview(); obFlash('Template saved'); }
+}
+async function obResetTemplate(){
+  if(!confirm('Replace the saved template with the default letter?')) return;
+  const prev=JSON.parse(JSON.stringify(OB_DATA));
+  OB_DATA.template=null;
+  obFillTemplateFields();
+  if(await obPersist(prev)){ obRenderPreview(); obFlash('Reset to default'); }
+}
+function obPopulatePreviewSelect(){
+  const sel=document.getElementById('obPreviewBoard'); const cur=sel.value;
+  sel.innerHTML=OHIO_BOARDS.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(b=>`<option value="${b.id}">${xe(b.name)}</option>`).join('');
+  if(cur) sel.value=cur;
+}
+function obRenderPreview(){
+  const b=OHIO_BOARDS.find(x=>x.id===document.getElementById('obPreviewBoard').value); if(!b) return;
+  // Preview merges the template as currently typed, so unsaved template edits show up too.
+  document.getElementById('obPrevSubject').value=obMerge(document.getElementById('obTplSubject').value,b);
+  document.getElementById('obPrevBody').value=obMerge(document.getElementById('obTplBody').value,b);
+}
+function obFlash(msg){ const el=document.getElementById('obCopyMsg'); el.textContent=msg; setTimeout(()=>{ if(el.textContent===msg) el.textContent=''; },2500); }
+async function obCopyLetter(){
+  const text=document.getElementById('obPrevBody').value;
+  try{ await navigator.clipboard.writeText(text); obFlash('Copied'); }
+  catch(e){ const ta=document.getElementById('obPrevBody'); ta.select(); document.execCommand('copy'); obFlash('Copied'); }
+}
+function obOpenEmail(){
+  const b=OHIO_BOARDS.find(x=>x.id===document.getElementById('obPreviewBoard').value); if(!b) return;
+  const to=obTrack(b.id).email||'';
+  if(!to && !confirm('No email saved for this board yet. Open a blank-recipient draft anyway?')) return;
+  window.location.href='mailto:'+encodeURIComponent(to)+'?subject='+encodeURIComponent(document.getElementById('obPrevSubject').value)+'&body='+encodeURIComponent(document.getElementById('obPrevBody').value);
+}
+async function obMarkSent(){
+  const id=document.getElementById('obPreviewBoard').value; if(!id) return;
+  const prev=JSON.parse(JSON.stringify(OB_DATA));
+  const t=obTrack(id); const today=goalTodayIso();
+  const fu=new Date(); fu.setDate(fu.getDate()+14);
+  const fuIso=fu.getFullYear()+'-'+String(fu.getMonth()+1).padStart(2,'0')+'-'+String(fu.getDate()).padStart(2,'0');
+  OB_DATA.tracking[id]={ ...t, status:(!t.status||t.status==='Not Contacted')?'Letter Sent':t.status, sentDate:today, nextFollowUp:t.nextFollowUp||fuIso, updatedBy:currentReviewerName, updatedAt:new Date().toISOString() };
+  renderBoardsTable(); renderBoardsKPIs();
+  if(await obPersist(prev)) obFlash('Marked sent · follow-up set 2 weeks out');
+}
+function obDraftFor(id){
+  const c=document.getElementById('obLetterCard');
+  if(c.style.display==='none') obToggleLetter();
+  document.getElementById('obPreviewBoard').value=id;
+  obRenderPreview();
+  document.getElementById('obPrevBody').scrollIntoView({behavior:'smooth',block:'center'});
+}
+
+// ---------- edit form ----------
+function obEdit(id){
+  const b=OHIO_BOARDS.find(x=>x.id===id); if(!b) return;
+  const t=obTrack(id); OB_EDIT_ID=id;
+  document.getElementById('obFormTitle').textContent=b.name;
+  document.getElementById('obfStatus').value=obStatus(id);
+  document.getElementById('obfContact').value=t.contactName||'';
+  document.getElementById('obfTitle').value=t.contactTitle||'';
+  document.getElementById('obfSalutation').value=t.salutation||'';
+  document.getElementById('obfEmail').value=t.email||'';
+  document.getElementById('obfPhone').value=t.phone||'';
+  document.getElementById('obfSent').value=t.sentDate||'';
+  document.getElementById('obfNext').value=t.nextFollowUp||'';
+  document.getElementById('obfOwner').value=t.owner||'';
+  document.getElementById('obfNotes').value=t.notes||'';
+  document.getElementById('obfConfirmed').checked=!!t.contactConfirmed;
+  const card=document.getElementById('obFormCard'); card.style.display='';
+  card.scrollIntoView({behavior:'smooth',block:'center'});
+}
+function obCloseForm(){ OB_EDIT_ID=null; document.getElementById('obFormCard').style.display='none'; }
+async function obSaveBoard(){
+  if(!OB_EDIT_ID) return;
+  const prev=JSON.parse(JSON.stringify(OB_DATA));
+  const v=id=>document.getElementById(id).value.trim();
+  OB_DATA.tracking[OB_EDIT_ID]={ ...obTrack(OB_EDIT_ID),
+    status:document.getElementById('obfStatus').value, contactName:v('obfContact'), contactTitle:v('obfTitle'),
+    salutation:v('obfSalutation'), email:v('obfEmail'), phone:v('obfPhone'), sentDate:v('obfSent'),
+    nextFollowUp:v('obfNext'), owner:v('obfOwner'), notes:v('obfNotes'),
+    contactConfirmed: document.getElementById('obfConfirmed').checked ? (obTrack(OB_EDIT_ID).contactConfirmed || (currentReviewerName||'yes')+' · '+goalTodayIso()) : false,
+    updatedBy:currentReviewerName, updatedAt:new Date().toISOString() };
+  if(await obPersist(prev)){ obCloseForm(); renderBoardsTab(); }
+}
+
+// ---------- table ----------
+function obClearFilters(){
+  OB={ search:'', status:'', footprintOnly:false, dueOnly:false, noEmailOnly:false };
+  document.getElementById('obNoEmail').checked=false;
+  document.getElementById('obSearch').value=''; document.getElementById('obStatusFilter').value='';
+  document.getElementById('obFootprint').checked=false; document.getElementById('obDueOnly').checked=false;
+  renderBoardsTable();
+}
+function obSort(key){
+  if(obSortState.key===key) obSortState.dir=obSortState.dir==='asc'?'desc':'asc';
+  else obSortState={ key, dir:(key==='presence'?'desc':'asc') };
+  renderBoardsTable();
+}
+function obRows(){
+  const today=goalTodayIso(); const q=OB.search.trim().toLowerCase();
+  let rows=OHIO_BOARDS.map(b=>{ const t=obTrack(b.id); return { b, t, status:obStatus(b.id), presence:obPresence(b) }; });
+  if(q) rows=rows.filter(r=>[r.b.name, r.b.counties.join(' '), r.t.contactName, r.t.notes, r.t.email].join(' ').toLowerCase().includes(q));
+  if(OB.status) rows=rows.filter(r=>r.status===OB.status);
+  if(OB.footprintOnly) rows=rows.filter(r=>r.presence>0);
+  if(OB.noEmailOnly) rows=rows.filter(r=>!r.t.email);
+  if(OB.dueOnly) rows=rows.filter(r=>r.t.nextFollowUp && r.t.nextFollowUp<=today && !['Partner','Not a Fit'].includes(r.status));
+  const d=obSortState.dir==='asc'?1:-1, k=obSortState.key;
+  rows.sort((a,b)=>{
+    let x,y;
+    if(k==='name'){ x=a.b.name; y=b.b.name; }
+    else if(k==='counties'){ x=a.b.counties[0]; y=b.b.counties[0]; }
+    else if(k==='presence'){ x=a.presence; y=b.presence; }
+    else if(k==='status'){ x=OB_STATUSES.indexOf(a.status); y=OB_STATUSES.indexOf(b.status); }
+    else { x=a.t.nextFollowUp||'9999'; y=b.t.nextFollowUp||'9999'; }
+    if(x<y) return -1*d; if(x>y) return 1*d; return a.b.name.localeCompare(b.b.name);
+  });
+  return rows;
+}
+function renderBoardsTable(){
+  obStyleMap();
+  ['name','counties','presence','status','next'].forEach(k=>{ const el=document.getElementById('obSI_'+k); if(el) el.textContent = obSortState.key===k ? (obSortState.dir==='asc'?'▲':'▼') : '↕'; });
+  const today=goalTodayIso(); const rows=obRows();
+  const body=document.getElementById('obTableBody');
+  if(!rows.length){ body.innerHTML='<tr><td colspan="7" class="empty-state">No boards match these filters.</td></tr>'; return; }
+  body.innerHTML=rows.map(({b,t,status,presence})=>{
+    const web = b.web ? `<a href="${xe(b.web)}" target="_blank" rel="noopener">Website ↗</a>`
+                      : `<a href="https://www.google.com/search?q=${encodeURIComponent(b.name+' Ohio')}" target="_blank" rel="noopener">Find website ↗</a>`;
+    const contact = t.contactName
+      ? `<div style="font-weight:600">${xe(t.contactName)}</div>${t.contactTitle?`<div class="ob-sub">${xe(t.contactTitle)}</div>`:''}${t.email?`<div class="ob-sub"><a href="mailto:${xe(t.email)}">${xe(t.email)}</a>${t.emailType==='General inbox'?' (general inbox)':''}</div>`:'<div class="ob-sub" style="color:var(--bad)">no email found — call</div>'}${t.phone?`<div class="ob-sub">${xe(t.phone)}</div>`:''}`
+      : '<span class="ob-sub">— not yet identified</span>';
+    const overdue = t.nextFollowUp && t.nextFollowUp<=today && !['Partner','Not a Fit'].includes(status);
+    const dates = [t.sentDate?'Sent '+goalFmtDate(t.sentDate):'', t.nextFollowUp?`<span class="${overdue?'overdue':''}">Follow up ${goalFmtDate(t.nextFollowUp)}${overdue?' · due':''}</span>`:''].filter(Boolean).join('<br>') || '<span class="ob-sub">—</span>';
+    return `<tr>
+      <td><div style="font-weight:600">${xe(b.name)}${status==='Standing Relationship'&&!t.contactConfirmed?'<span class="ob-star" title="Standing relationship — Justin to confirm contact info">*</span>':''}</div>${!t.email?'<div class="ob-noemail">☎ No email on file — call to get one</div>':''}${status==='Standing Relationship'?(t.contactConfirmed?`<div class="ob-confirmed">✓ Contact confirmed (${xe(t.contactConfirmed)})</div>`:'<div class="ob-confirm">* Standing relationship — Justin: please confirm contact info</div>'):''}<div class="ob-sub">${web}${t.notes?` · <span title="${xe(t.notes)}">has notes</span>`:''}</div>${t.verify?`<div class="ob-verify">⚠ ${xe(t.verify)}</div>`:''}</td>
+      <td>${b.counties.map(c=>`<span class="ob-county">${xe(c)}</span>`).join(' ')}</td>
+      <td>${presence?`<span class="bdg good">${presence} on staff</span>`:'<span class="ob-sub">none</span>'}</td>
+      <td><span class="bdg ${OB_STATUS_CLS[status]||'neutral'}">${xe(status)}</span>${t.owner?`<div class="ob-sub" style="margin-top:3px">Owner: ${xe(t.owner)}</div>`:''}</td>
+      <td>${contact}</td>
+      <td style="white-space:nowrap">${dates}</td>
+      <td class="tbl-actions" style="white-space:nowrap"><button onclick="obEdit('${b.id}')">Edit</button><button onclick="obDraftFor('${b.id}')">Draft letter</button></td>
+    </tr>`;
+  }).join('');
+}
+
+// ---------- county map (11/3/26) ----------
+// Ohio's 88 county outlines, simplified from the public-domain US Census boundaries
+// (us-atlas counties-10m), embedded so the map works with no extra request.
+const OHIO_COUNTIES_GEO={"type":"FeatureCollection","features":[{"type":"Feature","properties":{"n":"Crawford"},"geometry":{"type":"Polygon","coordinates":[[[-83.112,40.993],[-82.854,40.993],[-82.829,40.997],[-82.725,40.996],[-82.728,40.712],[-82.857,40.712],[-82.857,40.705],[-83.112,40.703],[-83.112,40.993]]]}},{"type":"Feature","properties":{"n":"Medina"},"geometry":{"type":"Polygon","coordinates":[[[-82.172,41.064],[-82.168,41.137],[-82.075,41.137],[-82.071,41.2],[-81.974,41.2],[-81.971,41.275],[-81.877,41.275],[-81.684,41.277],[-81.687,40.988],[-82.129,40.992],[-82.172,40.992],[-82.172,41.064]]]}},{"type":"Feature","properties":{"n":"Hancock"},"geometry":{"type":"Polygon","coordinates":[[[-83.88,41.168],[-83.421,41.167],[-83.421,40.992],[-83.457,40.992],[-83.457,40.949],[-83.478,40.949],[-83.478,40.905],[-83.514,40.905],[-83.514,40.818],[-83.88,40.82],[-83.88,40.92],[-83.88,41.168]]]}},{"type":"Feature","properties":{"n":"Harrison"},"geometry":{"type":"Polygon","coordinates":[[[-81.339,40.214],[-81.335,40.304],[-81.274,40.304],[-81.271,40.433],[-80.941,40.425],[-80.865,40.423],[-80.883,40.159],[-81.221,40.173],[-81.224,40.17],[-81.339,40.172],[-81.339,40.214]]]}},{"type":"Feature","properties":{"n":"Knox"},"geometry":{"type":"Polygon","coordinates":[[[-82.746,40.35],[-82.646,40.345],[-82.642,40.55],[-82.624,40.55],[-82.376,40.551],[-82.337,40.555],[-82.218,40.568],[-82.179,40.573],[-82.186,40.456],[-82.197,40.239],[-82.477,40.246],[-82.477,40.265],[-82.75,40.277],[-82.746,40.35]]]}},{"type":"Feature","properties":{"n":"Defiance"},"geometry":{"type":"Polygon","coordinates":[[[-84.803,41.426],[-84.343,41.427],[-84.228,41.428],[-84.228,41.166],[-84.343,41.165],[-84.343,41.209],[-84.458,41.209],[-84.458,41.254],[-84.803,41.253],[-84.803,41.271],[-84.803,41.426]]]}},{"type":"Feature","properties":{"n":"Greene"},"geometry":{"type":"Polygon","coordinates":[[[-84.053,39.851],[-83.941,39.844],[-83.941,39.829],[-83.826,39.822],[-83.83,39.798],[-83.647,39.773],[-83.654,39.717],[-83.669,39.55],[-83.977,39.569],[-84.114,39.578],[-84.114,39.627],[-84.092,39.838],[-84.053,39.851]]]}},{"type":"Feature","properties":{"n":"Marion"},"geometry":{"type":"Polygon","coordinates":[[[-83.421,40.687],[-83.306,40.687],[-83.306,40.702],[-83.112,40.703],[-82.857,40.705],[-82.861,40.646],[-82.958,40.636],[-82.958,40.491],[-83.015,40.485],[-83.022,40.434],[-83.249,40.444],[-83.249,40.507],[-83.417,40.505],[-83.421,40.687]]]}},{"type":"Feature","properties":{"n":"Shelby"},"geometry":{"type":"Polygon","coordinates":[[[-84.433,40.354],[-84.433,40.378],[-84.34,40.379],[-84.34,40.481],[-84.002,40.483],[-84.002,40.313],[-84.013,40.273],[-84.024,40.184],[-84.218,40.2],[-84.433,40.197],[-84.433,40.354]]]}},{"type":"Feature","properties":{"n":"Summit"},"geometry":{"type":"Polygon","coordinates":[[[-81.684,41.277],[-81.565,41.278],[-81.598,41.351],[-81.393,41.348],[-81.393,40.988],[-81.418,40.988],[-81.422,40.907],[-81.648,40.914],[-81.648,40.988],[-81.687,40.988],[-81.684,41.277]]]}},{"type":"Feature","properties":{"n":"Van Wert"},"geometry":{"type":"Polygon","coordinates":[[[-84.803,40.989],[-84.401,40.99],[-84.397,40.903],[-84.34,40.903],[-84.34,40.859],[-84.34,40.816],[-84.397,40.816],[-84.397,40.685],[-84.455,40.685],[-84.455,40.728],[-84.803,40.728],[-84.803,40.923],[-84.803,40.989]]]}},{"type":"Feature","properties":{"n":"Warren"},"geometry":{"type":"Polygon","coordinates":[[[-84.365,39.59],[-84.114,39.578],[-83.977,39.569],[-84.006,39.255],[-84.261,39.271],[-84.261,39.288],[-84.354,39.292],[-84.34,39.413],[-84.333,39.548],[-84.365,39.544],[-84.365,39.59]]]}},{"type":"Feature","properties":{"n":"Guernsey"},"geometry":{"type":"Polygon","coordinates":[[[-81.716,40.152],[-81.669,40.151],[-81.669,40.223],[-81.623,40.221],[-81.339,40.214],[-81.339,40.172],[-81.224,40.17],[-81.235,39.951],[-81.386,39.95],[-81.386,39.921],[-81.461,39.924],[-81.465,39.895],[-81.58,39.898],[-81.58,39.839],[-81.694,39.842],[-81.691,39.931],[-81.73,39.932],[-81.716,40.152]]]}},{"type":"Feature","properties":{"n":"Delaware"},"geometry":{"type":"Polygon","coordinates":[[[-83.249,40.444],[-83.022,40.434],[-83.022,40.419],[-82.926,40.415],[-82.929,40.359],[-82.746,40.35],[-82.75,40.277],[-82.76,40.126],[-83.17,40.143],[-83.173,40.244],[-83.249,40.244],[-83.249,40.444]]]}},{"type":"Feature","properties":{"n":"Geauga"},"geometry":{"type":"Polygon","coordinates":[[[-81.389,41.57],[-81.296,41.57],[-81.296,41.641],[-81.102,41.641],[-81.102,41.714],[-81.005,41.715],[-81.002,41.502],[-81.002,41.348],[-81.393,41.348],[-81.389,41.57]]]}},{"type":"Feature","properties":{"n":"Pickaway"},"geometry":{"type":"Polygon","coordinates":[[[-83.252,39.695],[-83.245,39.812],[-82.825,39.795],[-82.843,39.561],[-82.732,39.554],[-82.742,39.469],[-82.997,39.48],[-82.994,39.506],[-83.267,39.517],[-83.252,39.695]]]}},{"type":"Feature","properties":{"n":"Portage"},"geometry":{"type":"Polygon","coordinates":[[[-81.393,41.348],[-81.002,41.348],[-81.002,41.134],[-81.002,40.987],[-81.088,40.988],[-81.393,40.988],[-81.393,41.348]]]}},{"type":"Feature","properties":{"n":"Licking"},"geometry":{"type":"Polygon","coordinates":[[[-82.76,40.126],[-82.75,40.277],[-82.477,40.265],[-82.477,40.246],[-82.197,40.239],[-82.183,40.238],[-82.186,40.167],[-82.201,39.95],[-82.233,39.951],[-82.233,39.914],[-82.419,39.922],[-82.463,39.931],[-82.473,39.925],[-82.782,39.939],[-82.76,40.126]]]}},{"type":"Feature","properties":{"n":"Darke"},"geometry":{"type":"Polygon","coordinates":[[[-84.814,39.917],[-84.81,40.005],[-84.81,40.129],[-84.803,40.31],[-84.803,40.353],[-84.433,40.354],[-84.433,40.197],[-84.426,39.92],[-84.487,39.919],[-84.814,39.917]]]}},{"type":"Feature","properties":{"n":"Sandusky"},"geometry":{"type":"Polygon","coordinates":[[[-83.414,41.5],[-83.338,41.501],[-83.338,41.457],[-82.951,41.458],[-82.954,41.43],[-82.847,41.431],[-82.843,41.29],[-82.839,41.255],[-83.076,41.257],[-83.249,41.253],[-83.421,41.254],[-83.414,41.5]]]}},{"type":"Feature","properties":{"n":"Holmes"},"geometry":{"type":"Polygon","coordinates":[[[-82.125,40.668],[-81.651,40.668],[-81.648,40.635],[-81.669,40.633],[-81.669,40.444],[-81.709,40.444],[-82.186,40.456],[-82.179,40.573],[-82.218,40.568],[-82.222,40.668],[-82.125,40.668]]]}},{"type":"Feature","properties":{"n":"Hocking"},"geometry":{"type":"Polygon","coordinates":[[[-82.742,39.469],[-82.732,39.554],[-82.732,39.569],[-82.62,39.564],[-82.617,39.609],[-82.495,39.603],[-82.491,39.662],[-82.373,39.655],[-82.38,39.597],[-82.262,39.591],[-82.265,39.562],[-82.157,39.556],[-82.168,39.466],[-82.279,39.473],[-82.29,39.384],[-82.513,39.396],[-82.516,39.37],[-82.635,39.376],[-82.635,39.361],[-82.75,39.368],[-82.742,39.469]]]}},{"type":"Feature","properties":{"n":"Lucas"},"geometry":{"type":"Polygon","coordinates":[[[-83.884,41.487],[-83.88,41.72],[-83.762,41.724],[-83.453,41.733],[-83.45,41.711],[-83.374,41.687],[-83.328,41.701],[-83.234,41.645],[-83.166,41.623],[-83.417,41.619],[-83.572,41.617],[-83.611,41.571],[-83.704,41.529],[-83.712,41.493],[-83.747,41.466],[-83.884,41.414],[-83.884,41.487]]]}},{"type":"Feature","properties":{"n":"Meigs"},"geometry":{"type":"Polygon","coordinates":[[[-82.323,39.028],[-82.308,39.206],[-82.269,39.204],[-81.96,39.189],[-81.755,39.181],[-81.748,39.096],[-81.813,39.082],[-81.802,39.045],[-81.766,39.02],[-81.781,38.925],[-81.813,38.946],[-81.845,38.929],[-81.856,38.893],[-81.91,38.878],[-81.928,38.902],[-81.899,38.926],[-81.942,38.994],[-81.982,38.994],[-82.028,39.029],[-82.1,38.958],[-82.096,39.003],[-82.323,39.013],[-82.323,39.028]]]}},{"type":"Feature","properties":{"n":"Gallia"},"geometry":{"type":"Polygon","coordinates":[[[-82.574,38.845],[-82.574,38.853],[-82.455,38.845],[-82.434,39.035],[-82.323,39.028],[-82.323,39.013],[-82.096,39.003],[-82.1,38.958],[-82.143,38.898],[-82.143,38.841],[-82.218,38.796],[-82.183,38.706],[-82.172,38.619],[-82.218,38.591],[-82.287,38.583],[-82.362,38.585],[-82.355,38.676],[-82.473,38.683],[-82.466,38.742],[-82.484,38.772],[-82.581,38.779],[-82.574,38.845]]]}},{"type":"Feature","properties":{"n":"Huron"},"geometry":{"type":"Polygon","coordinates":[[[-82.843,41.29],[-82.344,41.284],[-82.337,41.066],[-82.437,41.066],[-82.434,40.993],[-82.725,40.996],[-82.829,40.997],[-82.839,41.255],[-82.843,41.29]]]}},{"type":"Feature","properties":{"n":"Carroll"},"geometry":{"type":"Polygon","coordinates":[[[-81.318,40.651],[-81.242,40.651],[-81.239,40.724],[-81.088,40.728],[-80.916,40.727],[-80.919,40.644],[-80.862,40.643],[-80.862,40.599],[-80.865,40.555],[-80.919,40.556],[-80.926,40.468],[-80.941,40.425],[-81.271,40.433],[-81.264,40.565],[-81.321,40.566],[-81.318,40.651]]]}},{"type":"Feature","properties":{"n":"Logan"},"geometry":{"type":"Polygon","coordinates":[[[-84.002,40.483],[-83.995,40.536],[-83.88,40.539],[-83.88,40.532],[-83.521,40.509],[-83.521,40.504],[-83.55,40.23],[-83.787,40.245],[-83.783,40.26],[-84.013,40.273],[-84.002,40.313],[-84.002,40.483]]]}},{"type":"Feature","properties":{"n":"Union"},"geometry":{"type":"Polygon","coordinates":[[[-83.521,40.504],[-83.417,40.505],[-83.249,40.507],[-83.249,40.444],[-83.249,40.244],[-83.173,40.244],[-83.17,40.143],[-83.17,40.107],[-83.206,40.108],[-83.503,40.111],[-83.496,40.225],[-83.55,40.23],[-83.521,40.504]]]}},{"type":"Feature","properties":{"n":"Auglaize"},"geometry":{"type":"Polygon","coordinates":[[[-84.455,40.685],[-84.397,40.685],[-84.221,40.686],[-84.221,40.657],[-84.106,40.658],[-84.106,40.643],[-83.88,40.645],[-83.88,40.539],[-83.995,40.536],[-84.002,40.483],[-84.34,40.481],[-84.34,40.379],[-84.433,40.378],[-84.433,40.354],[-84.455,40.359],[-84.455,40.685]]]}},{"type":"Feature","properties":{"n":"Richland"},"geometry":{"type":"Polygon","coordinates":[[[-82.725,40.996],[-82.434,40.993],[-82.419,40.993],[-82.419,40.823],[-82.387,40.808],[-82.38,40.727],[-82.34,40.727],[-82.337,40.555],[-82.376,40.551],[-82.624,40.55],[-82.628,40.709],[-82.728,40.712],[-82.725,40.996]]]}},{"type":"Feature","properties":{"n":"Williams"},"geometry":{"type":"Polygon","coordinates":[[[-84.806,41.696],[-84.401,41.706],[-84.397,41.617],[-84.383,41.617],[-84.379,41.514],[-84.343,41.514],[-84.343,41.486],[-84.343,41.427],[-84.803,41.426],[-84.806,41.53],[-84.806,41.696]]]}},{"type":"Feature","properties":{"n":"Belmont"},"geometry":{"type":"Polygon","coordinates":[[[-81.235,39.951],[-81.224,40.17],[-81.221,40.173],[-80.883,40.159],[-80.704,40.158],[-80.707,40.102],[-80.74,40.076],[-80.732,40.033],[-80.74,39.971],[-80.765,39.954],[-80.758,39.909],[-80.804,39.919],[-80.79,39.867],[-80.822,39.85],[-81.239,39.868],[-81.235,39.951]]]}},{"type":"Feature","properties":{"n":"Highland"},"geometry":{"type":"Polygon","coordinates":[[[-83.866,39.247],[-83.812,39.223],[-83.783,39.263],[-83.59,39.378],[-83.374,39.378],[-83.392,39.268],[-83.345,39.25],[-83.353,39.198],[-83.385,39.055],[-83.611,39.019],[-83.672,39.02],[-83.873,39.021],[-83.866,39.247]]]}},{"type":"Feature","properties":{"n":"Wood"},"geometry":{"type":"Polygon","coordinates":[[[-83.884,41.414],[-83.747,41.466],[-83.712,41.493],[-83.704,41.529],[-83.611,41.571],[-83.572,41.617],[-83.417,41.619],[-83.414,41.5],[-83.421,41.254],[-83.421,41.167],[-83.88,41.168],[-83.884,41.414]]]}},{"type":"Feature","properties":{"n":"Columbiana"},"geometry":{"type":"Polygon","coordinates":[[[-81.088,40.901],[-80.898,40.901],[-80.898,40.93],[-80.822,40.93],[-80.822,40.901],[-80.521,40.901],[-80.521,40.852],[-80.521,40.639],[-80.585,40.615],[-80.636,40.616],[-80.668,40.583],[-80.747,40.584],[-80.747,40.597],[-80.862,40.599],[-80.862,40.643],[-80.919,40.644],[-80.916,40.727],[-81.088,40.728],[-81.088,40.901]]]}},{"type":"Feature","properties":{"n":"Stark"},"geometry":{"type":"Polygon","coordinates":[[[-81.651,40.668],[-81.648,40.914],[-81.422,40.907],[-81.418,40.988],[-81.393,40.988],[-81.088,40.988],[-81.088,40.901],[-81.088,40.728],[-81.239,40.724],[-81.242,40.651],[-81.318,40.651],[-81.468,40.656],[-81.648,40.635],[-81.651,40.668]]]}},{"type":"Feature","properties":{"n":"Butler"},"geometry":{"type":"Polygon","coordinates":[[[-84.817,39.522],[-84.814,39.567],[-84.48,39.569],[-84.48,39.591],[-84.365,39.59],[-84.365,39.544],[-84.333,39.548],[-84.34,39.413],[-84.354,39.292],[-84.63,39.312],[-84.641,39.305],[-84.821,39.305],[-84.817,39.522]]]}},{"type":"Feature","properties":{"n":"Washington"},"geometry":{"type":"Polygon","coordinates":[[[-81.845,39.451],[-81.824,39.494],[-81.709,39.481],[-81.705,39.531],[-81.723,39.531],[-81.716,39.584],[-81.587,39.587],[-81.472,39.584],[-81.472,39.646],[-81.414,39.631],[-81.397,39.602],[-81.285,39.592],[-81.282,39.606],[-81.246,39.579],[-81.038,39.573],[-81.038,39.54],[-81.102,39.487],[-81.12,39.457],[-81.17,39.439],[-81.21,39.393],[-81.271,39.386],[-81.371,39.342],[-81.436,39.408],[-81.468,39.404],[-81.558,39.339],[-81.569,39.268],[-81.68,39.274],[-81.691,39.226],[-81.727,39.216],[-81.723,39.269],[-81.82,39.273],[-81.816,39.302],[-81.852,39.318],[-81.845,39.451]]]}},{"type":"Feature","properties":{"n":"Montgomery"},"geometry":{"type":"Polygon","coordinates":[[[-84.487,39.919],[-84.426,39.92],[-84.157,39.923],[-84.157,39.885],[-84.053,39.88],[-84.053,39.851],[-84.092,39.838],[-84.114,39.627],[-84.114,39.578],[-84.365,39.59],[-84.48,39.591],[-84.487,39.919]]]}},{"type":"Feature","properties":{"n":"Ashland"},"geometry":{"type":"Polygon","coordinates":[[[-82.337,41.066],[-82.172,41.064],[-82.172,40.992],[-82.129,40.992],[-82.125,40.668],[-82.222,40.668],[-82.218,40.568],[-82.337,40.555],[-82.34,40.727],[-82.38,40.727],[-82.387,40.808],[-82.419,40.823],[-82.419,40.993],[-82.434,40.993],[-82.437,41.066],[-82.337,41.066]]]}},{"type":"Feature","properties":{"n":"Jefferson"},"geometry":{"type":"Polygon","coordinates":[[[-80.862,40.599],[-80.747,40.597],[-80.747,40.584],[-80.668,40.583],[-80.628,40.536],[-80.596,40.463],[-80.628,40.395],[-80.607,40.37],[-80.6,40.321],[-80.618,40.265],[-80.654,40.245],[-80.682,40.186],[-80.704,40.158],[-80.883,40.159],[-80.865,40.423],[-80.941,40.425],[-80.926,40.468],[-80.919,40.556],[-80.865,40.555],[-80.862,40.599]]]}},{"type":"Feature","properties":{"n":"Adams"},"geometry":{"type":"Polygon","coordinates":[[[-83.704,38.64],[-83.704,38.679],[-83.672,39.02],[-83.611,39.019],[-83.385,39.055],[-83.313,39.052],[-83.27,39.016],[-83.267,38.618],[-83.31,38.601],[-83.328,38.638],[-83.367,38.658],[-83.468,38.676],[-83.521,38.703],[-83.615,38.684],[-83.647,38.637],[-83.704,38.64]]]}},{"type":"Feature","properties":{"n":"Preble"},"geometry":{"type":"Polygon","coordinates":[[[-84.814,39.726],[-84.814,39.917],[-84.487,39.919],[-84.48,39.591],[-84.48,39.569],[-84.814,39.567],[-84.814,39.726]]]}},{"type":"Feature","properties":{"n":"Putnam"},"geometry":{"type":"Polygon","coordinates":[[[-84.401,40.99],[-84.343,40.991],[-84.343,41.165],[-84.228,41.166],[-83.88,41.168],[-83.88,40.92],[-83.995,40.92],[-83.995,40.905],[-84.11,40.905],[-84.11,40.861],[-84.34,40.859],[-84.34,40.903],[-84.397,40.903],[-84.401,40.99]]]}},{"type":"Feature","properties":{"n":"Ross"},"geometry":{"type":"Polygon","coordinates":[[[-83.374,39.378],[-83.267,39.517],[-82.994,39.506],[-82.997,39.48],[-82.742,39.469],[-82.75,39.368],[-82.764,39.208],[-82.786,39.169],[-83.353,39.198],[-83.345,39.25],[-83.392,39.268],[-83.374,39.378]]]}},{"type":"Feature","properties":{"n":"Clark"},"geometry":{"type":"Polygon","coordinates":[[[-84.053,39.88],[-84.035,40.04],[-83.518,40.01],[-83.511,40.01],[-83.59,39.768],[-83.647,39.773],[-83.83,39.798],[-83.826,39.822],[-83.941,39.829],[-83.941,39.844],[-84.053,39.851],[-84.053,39.88]]]}},{"type":"Feature","properties":{"n":"Scioto"},"geometry":{"type":"Polygon","coordinates":[[[-83.27,39.016],[-83.216,38.992],[-83.213,38.96],[-83.001,38.957],[-82.807,38.948],[-82.753,38.945],[-82.76,38.855],[-82.649,38.849],[-82.664,38.748],[-82.696,38.75],[-82.707,38.677],[-82.764,38.68],[-82.768,38.645],[-82.739,38.597],[-82.814,38.571],[-82.847,38.595],[-82.879,38.69],[-82.868,38.728],[-82.893,38.756],[-82.969,38.729],[-83.022,38.729],[-83.044,38.706],[-83.119,38.666],[-83.137,38.628],[-83.267,38.618],[-83.27,39.016]]]}},{"type":"Feature","properties":{"n":"Seneca"},"geometry":{"type":"Polygon","coordinates":[[[-83.421,41.167],[-83.421,41.254],[-83.249,41.253],[-83.076,41.257],[-82.839,41.255],[-82.829,40.997],[-82.854,40.993],[-83.112,40.993],[-83.421,40.992],[-83.421,41.167]]]}},{"type":"Feature","properties":{"n":"Fairfield"},"geometry":{"type":"Polygon","coordinates":[[[-82.825,39.795],[-82.804,39.823],[-82.782,39.939],[-82.473,39.925],[-82.463,39.931],[-82.473,39.837],[-82.398,39.833],[-82.405,39.744],[-82.366,39.743],[-82.373,39.655],[-82.491,39.662],[-82.495,39.603],[-82.617,39.609],[-82.62,39.564],[-82.732,39.569],[-82.732,39.554],[-82.843,39.561],[-82.825,39.795]]]}},{"type":"Feature","properties":{"n":"Trumbull"},"geometry":{"type":"Polygon","coordinates":[[[-81.002,41.348],[-81.002,41.502],[-80.521,41.5],[-80.521,41.489],[-80.517,41.209],[-80.521,41.133],[-81.002,41.134],[-81.002,41.348]]]}},{"type":"Feature","properties":{"n":"Tuscarawas"},"geometry":{"type":"Polygon","coordinates":[[[-81.709,40.444],[-81.669,40.444],[-81.669,40.633],[-81.648,40.635],[-81.468,40.656],[-81.318,40.651],[-81.321,40.566],[-81.264,40.565],[-81.271,40.433],[-81.274,40.304],[-81.335,40.304],[-81.339,40.214],[-81.623,40.221],[-81.615,40.368],[-81.712,40.371],[-81.709,40.444]]]}},{"type":"Feature","properties":{"n":"Lorain"},"geometry":{"type":"Polygon","coordinates":[[[-82.348,41.428],[-82.254,41.434],[-82.193,41.464],[-82.01,41.516],[-81.967,41.506],[-81.971,41.352],[-81.877,41.351],[-81.877,41.275],[-81.971,41.275],[-81.974,41.2],[-82.071,41.2],[-82.075,41.137],[-82.168,41.137],[-82.172,41.064],[-82.337,41.066],[-82.344,41.284],[-82.348,41.428]]]}},{"type":"Feature","properties":{"n":"Pike"},"geometry":{"type":"Polygon","coordinates":[[[-83.353,39.198],[-82.786,39.169],[-82.807,38.948],[-83.001,38.957],[-83.213,38.96],[-83.216,38.992],[-83.27,39.016],[-83.313,39.052],[-83.385,39.055],[-83.353,39.198]]]}},{"type":"Feature","properties":{"n":"Lawrence"},"geometry":{"type":"Polygon","coordinates":[[[-82.814,38.571],[-82.739,38.597],[-82.768,38.645],[-82.764,38.68],[-82.707,38.677],[-82.696,38.75],[-82.664,38.748],[-82.649,38.849],[-82.574,38.845],[-82.581,38.779],[-82.484,38.772],[-82.466,38.742],[-82.473,38.683],[-82.355,38.676],[-82.362,38.585],[-82.287,38.583],[-82.305,38.491],[-82.323,38.449],[-82.405,38.439],[-82.509,38.411],[-82.552,38.403],[-82.595,38.422],[-82.617,38.477],[-82.667,38.506],[-82.725,38.558],[-82.814,38.571]]]}},{"type":"Feature","properties":{"n":"Wayne"},"geometry":{"type":"Polygon","coordinates":[[[-82.129,40.992],[-81.687,40.988],[-81.648,40.988],[-81.648,40.914],[-81.651,40.668],[-82.125,40.668],[-82.129,40.992]]]}},{"type":"Feature","properties":{"n":"Clermont"},"geometry":{"type":"Polygon","coordinates":[[[-84.261,39.271],[-84.006,39.255],[-83.992,39.255],[-84.053,38.771],[-84.214,38.805],[-84.232,38.828],[-84.232,38.875],[-84.239,38.901],[-84.289,38.956],[-84.318,39.022],[-84.3,39.175],[-84.275,39.204],[-84.322,39.224],[-84.261,39.271]]]}},{"type":"Feature","properties":{"n":"Coshocton"},"geometry":{"type":"Polygon","coordinates":[[[-82.186,40.456],[-81.709,40.444],[-81.712,40.371],[-81.615,40.368],[-81.623,40.221],[-81.669,40.223],[-81.669,40.151],[-81.716,40.152],[-82.186,40.167],[-82.183,40.238],[-82.197,40.239],[-82.186,40.456]]]}},{"type":"Feature","properties":{"n":"Madison"},"geometry":{"type":"Polygon","coordinates":[[[-83.647,39.773],[-83.59,39.768],[-83.511,40.01],[-83.518,40.01],[-83.503,40.111],[-83.206,40.108],[-83.213,40.048],[-83.256,40.048],[-83.249,39.97],[-83.227,39.932],[-83.252,39.917],[-83.245,39.812],[-83.252,39.695],[-83.654,39.717],[-83.647,39.773]]]}},{"type":"Feature","properties":{"n":"Cuyahoga"},"geometry":{"type":"Polygon","coordinates":[[[-81.967,41.506],[-81.877,41.483],[-81.809,41.496],[-81.737,41.488],[-81.633,41.541],[-81.529,41.614],[-81.49,41.632],[-81.486,41.57],[-81.389,41.57],[-81.393,41.348],[-81.598,41.351],[-81.565,41.278],[-81.684,41.277],[-81.877,41.275],[-81.877,41.351],[-81.971,41.352],[-81.967,41.506]]]}},{"type":"Feature","properties":{"n":"Franklin"},"geometry":{"type":"Polygon","coordinates":[[[-83.206,40.108],[-83.17,40.107],[-83.17,40.143],[-82.76,40.126],[-82.782,39.939],[-82.804,39.823],[-82.825,39.795],[-83.245,39.812],[-83.252,39.917],[-83.227,39.932],[-83.249,39.97],[-83.256,40.048],[-83.213,40.048],[-83.206,40.108]]]}},{"type":"Feature","properties":{"n":"Hamilton"},"geometry":{"type":"Polygon","coordinates":[[[-84.821,39.305],[-84.641,39.305],[-84.63,39.312],[-84.354,39.292],[-84.261,39.288],[-84.261,39.271],[-84.322,39.224],[-84.275,39.204],[-84.3,39.175],[-84.318,39.022],[-84.429,39.055],[-84.444,39.115],[-84.473,39.122],[-84.505,39.095],[-84.551,39.099],[-84.623,39.074],[-84.677,39.098],[-84.731,39.145],[-84.756,39.146],[-84.821,39.105],[-84.821,39.305]]]}},{"type":"Feature","properties":{"n":"Hardin"},"geometry":{"type":"Polygon","coordinates":[[[-83.88,40.82],[-83.514,40.818],[-83.496,40.818],[-83.496,40.701],[-83.439,40.702],[-83.421,40.687],[-83.417,40.505],[-83.521,40.504],[-83.521,40.509],[-83.88,40.532],[-83.88,40.539],[-83.88,40.645],[-83.88,40.82]]]}},{"type":"Feature","properties":{"n":"Clinton"},"geometry":{"type":"Polygon","coordinates":[[[-84.006,39.255],[-83.977,39.569],[-83.669,39.55],[-83.575,39.544],[-83.59,39.378],[-83.783,39.263],[-83.812,39.223],[-83.866,39.247],[-83.992,39.255],[-84.006,39.255]]]}},{"type":"Feature","properties":{"n":"Allen"},"geometry":{"type":"Polygon","coordinates":[[[-84.34,40.859],[-84.11,40.861],[-84.11,40.905],[-83.995,40.905],[-83.995,40.92],[-83.88,40.92],[-83.88,40.82],[-83.88,40.645],[-84.106,40.643],[-84.106,40.658],[-84.221,40.657],[-84.221,40.686],[-84.397,40.685],[-84.397,40.816],[-84.34,40.816],[-84.34,40.859]]]}},{"type":"Feature","properties":{"n":"Fulton"},"geometry":{"type":"Polygon","coordinates":[[[-84.401,41.706],[-84.361,41.706],[-83.88,41.72],[-83.884,41.487],[-84.343,41.486],[-84.343,41.514],[-84.379,41.514],[-84.383,41.617],[-84.397,41.617],[-84.401,41.706]]]}},{"type":"Feature","properties":{"n":"Jackson"},"geometry":{"type":"Polygon","coordinates":[[[-82.786,39.169],[-82.764,39.208],[-82.649,39.202],[-82.653,39.189],[-82.538,39.181],[-82.541,39.145],[-82.423,39.138],[-82.434,39.035],[-82.455,38.845],[-82.574,38.853],[-82.574,38.845],[-82.649,38.849],[-82.76,38.855],[-82.753,38.945],[-82.807,38.948],[-82.786,39.169]]]}},{"type":"Feature","properties":{"n":"Athens"},"geometry":{"type":"Polygon","coordinates":[[[-82.29,39.384],[-82.279,39.473],[-82.168,39.466],[-82.157,39.556],[-82.046,39.551],[-82.057,39.46],[-81.845,39.451],[-81.852,39.318],[-81.816,39.302],[-81.82,39.273],[-81.723,39.269],[-81.727,39.216],[-81.755,39.181],[-81.96,39.189],[-82.269,39.204],[-82.262,39.293],[-82.297,39.295],[-82.29,39.384]]]}},{"type":"Feature","properties":{"n":"Henry"},"geometry":{"type":"Polygon","coordinates":[[[-84.343,41.486],[-83.884,41.487],[-83.884,41.414],[-83.88,41.168],[-84.228,41.166],[-84.228,41.428],[-84.343,41.427],[-84.343,41.486]]]}},{"type":"Feature","properties":{"n":"Fayette"},"geometry":{"type":"Polygon","coordinates":[[[-83.654,39.717],[-83.252,39.695],[-83.267,39.517],[-83.374,39.378],[-83.59,39.378],[-83.575,39.544],[-83.669,39.55],[-83.654,39.717]]]}},{"type":"Feature","properties":{"n":"Miami"},"geometry":{"type":"Polygon","coordinates":[[[-84.433,40.197],[-84.218,40.2],[-84.024,40.184],[-84.035,40.04],[-84.053,39.88],[-84.157,39.885],[-84.157,39.923],[-84.426,39.92],[-84.433,40.197]]]}},{"type":"Feature","properties":{"n":"Ottawa"},"geometry":{"type":"MultiPolygon","coordinates":[[[[-82.843,41.647],[-82.821,41.724],[-82.782,41.694],[-82.793,41.664],[-82.843,41.628],[-82.843,41.647]]],[[[-83.417,41.619],[-83.166,41.623],[-83.066,41.596],[-83.001,41.539],[-82.933,41.514],[-82.868,41.534],[-82.861,41.577],[-82.836,41.588],[-82.786,41.541],[-82.717,41.542],[-82.696,41.494],[-82.739,41.478],[-82.818,41.485],[-82.951,41.458],[-83.338,41.457],[-83.338,41.501],[-83.414,41.5],[-83.417,41.619]]]]}},{"type":"Feature","properties":{"n":"Morgan"},"geometry":{"type":"Polygon","coordinates":[[[-82.075,39.771],[-81.698,39.755],[-81.641,39.754],[-81.644,39.665],[-81.587,39.664],[-81.587,39.587],[-81.716,39.584],[-81.723,39.531],[-81.705,39.531],[-81.709,39.481],[-81.824,39.494],[-81.845,39.451],[-82.057,39.46],[-82.046,39.551],[-82.025,39.725],[-82.078,39.728],[-82.075,39.771]]]}},{"type":"Feature","properties":{"n":"Vinton"},"geometry":{"type":"Polygon","coordinates":[[[-82.75,39.368],[-82.635,39.361],[-82.635,39.376],[-82.516,39.37],[-82.513,39.396],[-82.29,39.384],[-82.297,39.295],[-82.262,39.293],[-82.269,39.204],[-82.308,39.206],[-82.323,39.028],[-82.434,39.035],[-82.423,39.138],[-82.541,39.145],[-82.538,39.181],[-82.653,39.189],[-82.649,39.202],[-82.764,39.208],[-82.75,39.368]]]}},{"type":"Feature","properties":{"n":"Wyandot"},"geometry":{"type":"Polygon","coordinates":[[[-83.421,40.992],[-83.112,40.993],[-83.112,40.703],[-83.306,40.702],[-83.306,40.687],[-83.421,40.687],[-83.439,40.702],[-83.496,40.701],[-83.496,40.818],[-83.514,40.818],[-83.514,40.905],[-83.478,40.905],[-83.478,40.949],[-83.457,40.949],[-83.457,40.992],[-83.421,40.992]]]}},{"type":"Feature","properties":{"n":"Perry"},"geometry":{"type":"Polygon","coordinates":[[[-82.463,39.931],[-82.419,39.922],[-82.233,39.914],[-82.161,39.909],[-82.172,39.821],[-82.071,39.816],[-82.075,39.771],[-82.078,39.728],[-82.025,39.725],[-82.046,39.551],[-82.157,39.556],[-82.265,39.562],[-82.262,39.591],[-82.38,39.597],[-82.373,39.655],[-82.366,39.743],[-82.405,39.744],[-82.398,39.833],[-82.473,39.837],[-82.463,39.931]]]}},{"type":"Feature","properties":{"n":"Champaign"},"geometry":{"type":"Polygon","coordinates":[[[-84.024,40.184],[-84.013,40.273],[-83.783,40.26],[-83.787,40.245],[-83.55,40.23],[-83.496,40.225],[-83.503,40.111],[-83.518,40.01],[-84.035,40.04],[-84.024,40.184]]]}},{"type":"Feature","properties":{"n":"Lake"},"geometry":{"type":"Polygon","coordinates":[[[-81.49,41.632],[-81.443,41.673],[-81.285,41.761],[-81.249,41.761],[-81.113,41.817],[-81.002,41.855],[-81.005,41.715],[-81.102,41.714],[-81.102,41.641],[-81.296,41.641],[-81.296,41.57],[-81.389,41.57],[-81.486,41.57],[-81.49,41.632]]]}},{"type":"Feature","properties":{"n":"Mahoning"},"geometry":{"type":"Polygon","coordinates":[[[-81.088,40.988],[-81.002,40.987],[-81.002,41.134],[-80.521,41.133],[-80.521,41.125],[-80.521,40.901],[-80.822,40.901],[-80.822,40.93],[-80.898,40.93],[-80.898,40.901],[-81.088,40.901],[-81.088,40.988]]]}},{"type":"Feature","properties":{"n":"Mercer"},"geometry":{"type":"Polygon","coordinates":[[[-84.803,40.572],[-84.803,40.728],[-84.455,40.728],[-84.455,40.685],[-84.455,40.359],[-84.433,40.354],[-84.803,40.353],[-84.803,40.572]]]}},{"type":"Feature","properties":{"n":"Paulding"},"geometry":{"type":"Polygon","coordinates":[[[-84.803,41.253],[-84.458,41.254],[-84.458,41.209],[-84.343,41.209],[-84.343,41.165],[-84.343,40.991],[-84.401,40.99],[-84.803,40.989],[-84.803,41.253]]]}},{"type":"Feature","properties":{"n":"Morrow"},"geometry":{"type":"Polygon","coordinates":[[[-83.022,40.434],[-83.015,40.485],[-82.958,40.491],[-82.958,40.636],[-82.861,40.646],[-82.857,40.705],[-82.857,40.712],[-82.728,40.712],[-82.628,40.709],[-82.624,40.55],[-82.642,40.55],[-82.646,40.345],[-82.746,40.35],[-82.929,40.359],[-82.926,40.415],[-83.022,40.419],[-83.022,40.434]]]}},{"type":"Feature","properties":{"n":"Muskingum"},"geometry":{"type":"Polygon","coordinates":[[[-82.186,40.167],[-81.716,40.152],[-81.73,39.932],[-81.691,39.931],[-81.694,39.842],[-81.698,39.755],[-82.075,39.771],[-82.071,39.816],[-82.172,39.821],[-82.161,39.909],[-82.233,39.914],[-82.233,39.951],[-82.201,39.95],[-82.186,40.167]]]}},{"type":"Feature","properties":{"n":"Monroe"},"geometry":{"type":"Polygon","coordinates":[[[-81.239,39.868],[-80.822,39.85],[-80.826,39.798],[-80.869,39.757],[-80.833,39.721],[-80.865,39.692],[-80.88,39.621],[-80.944,39.607],[-81.038,39.54],[-81.038,39.573],[-81.246,39.579],[-81.282,39.606],[-81.282,39.707],[-81.318,39.707],[-81.314,39.87],[-81.239,39.868]]]}},{"type":"Feature","properties":{"n":"Brown"},"geometry":{"type":"Polygon","coordinates":[[[-84.053,38.771],[-83.992,39.255],[-83.866,39.247],[-83.873,39.021],[-83.672,39.02],[-83.704,38.679],[-83.704,38.64],[-83.765,38.652],[-83.783,38.695],[-83.837,38.718],[-83.848,38.747],[-83.905,38.768],[-83.977,38.787],[-84.053,38.771]]]}},{"type":"Feature","properties":{"n":"Ashtabula"},"geometry":{"type":"Polygon","coordinates":[[[-81.002,41.855],[-80.901,41.869],[-80.815,41.898],[-80.582,41.957],[-80.521,41.978],[-80.521,41.85],[-80.521,41.5],[-81.002,41.502],[-81.005,41.715],[-81.002,41.855]]]}},{"type":"Feature","properties":{"n":"Erie"},"geometry":{"type":"MultiPolygon","coordinates":[[[[-82.735,41.603],[-82.678,41.618],[-82.685,41.587],[-82.735,41.603]]],[[[-82.951,41.458],[-82.818,41.485],[-82.739,41.478],[-82.696,41.494],[-82.617,41.428],[-82.559,41.4],[-82.48,41.382],[-82.348,41.428],[-82.344,41.284],[-82.843,41.29],[-82.847,41.431],[-82.954,41.43],[-82.951,41.458]]]]}},{"type":"Feature","properties":{"n":"Noble"},"geometry":{"type":"Polygon","coordinates":[[[-81.694,39.842],[-81.58,39.839],[-81.58,39.898],[-81.465,39.895],[-81.461,39.924],[-81.386,39.921],[-81.386,39.95],[-81.235,39.951],[-81.239,39.868],[-81.314,39.87],[-81.318,39.707],[-81.282,39.707],[-81.282,39.606],[-81.285,39.592],[-81.397,39.602],[-81.414,39.631],[-81.472,39.646],[-81.472,39.584],[-81.587,39.587],[-81.587,39.664],[-81.644,39.665],[-81.641,39.754],[-81.698,39.755],[-81.694,39.842]]]}}]};
+const OB_STATUS_COLORS={'Standing Relationship':'#0f4c5c','Individual Outreach':'#7a5bc4','Not Contacted':'#d9d3c4','Letter Sent':'#3c50a0','Follow-up Needed':'#f0c814','Meeting Scheduled':'#3cb43c','In Discussion':'#3cb43c','Partner':'#1f6e22','Not a Fit':'#a52d6d'};
+const OB_CONTACT_COLORS={'Director email':'#2d8c30','General inbox':'#f0c814','No email — call':'#a52d6d'};
+const OB_BOARD_PALETTE=['#3c50a0','#c83c8c','#3cb43c','#f0c814','#5b8fd4','#e07a3c','#7a5bc4','#2a9d8f','#b5651d','#8aa62f'];
+let obMap=null, obGeoLayer=null;
+function obBoardForCounty(name){ const n=obNormCounty(name); return OHIO_BOARDS.find(b=>b.counties.some(c=>obNormCounty(c)===n)); }
+function obContactKind(b){ const t=obTrack(b.id); if(!t.email) return 'No email — call'; return t.emailType==='General inbox'?'General inbox':'Director email'; }
+function obBoardColor(b){ const i=OHIO_BOARDS.slice().sort((x,y)=>x.counties[0].localeCompare(y.counties[0])).findIndex(x=>x.id===b.id); return OB_BOARD_PALETTE[i%OB_BOARD_PALETTE.length]; }
+function obInitMap(){
+  if(obMap || typeof L==='undefined') return;
+  obMap=L.map('obMap',{scrollWheelZoom:false, zoomSnap:0.25}).setView([40.25,-82.7],7);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png',{
+    attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a> · county lines: US Census',
+    subdomains:'abcd', maxZoom:12
+  }).addTo(obMap);
+  obGeoLayer=L.geoJSON(OHIO_COUNTIES_GEO,{
+    onEachFeature:(f,layer)=>{ layer.on('click',()=>{ const b=obBoardForCounty(f.properties.n); if(b) obEdit(b.id); }); }
+  }).addTo(obMap);
+  obMap.fitBounds(obGeoLayer.getBounds(),{padding:[10,10]});
+  obStyleMap();
+}
+function obStyleMap(){
+  if(!obGeoLayer) return;
+  const mode=document.getElementById('obMapMode').value;
+  const visible=new Set(obRows().map(r=>r.b.id));
+  obGeoLayer.eachLayer(layer=>{
+    const name=layer.feature.properties.n; const b=obBoardForCounty(name); if(!b) return;
+    const t=obTrack(b.id); const status=obStatus(b.id); const presence=obPresence(b);
+    const fill = mode==='contact' ? OB_CONTACT_COLORS[obContactKind(b)] : mode==='board' ? obBoardColor(b) : (OB_STATUS_COLORS[status]||'#d9d3c4');
+    const shown=visible.has(b.id);
+    layer.setStyle({ fillColor:fill, fillOpacity: shown?0.72:0.15, color: presence?'#1a2861':'#ffffff', weight: presence?2.6:1, opacity: shown?1:0.4 });
+    layer.bindTooltip(`<b>${xe(name)} County</b><br>${xe(b.name)}${status==='Standing Relationship'&&!t.contactConfirmed?' <b style="color:#a52d6d">*</b> <i>Justin to confirm contact</i>':''}<br>${t.contactName?xe(t.contactName)+(t.contactTitle?', '+xe(t.contactTitle):''):'<i>director not identified</i>'}<br>${t.email?xe(t.email):'<span style="color:#a52d6d">no email — call '+xe(t.phone||'')+'</span>'}<br>Status: ${xe(status)}${presence?` · ${presence} Thrive staff`:''}`,{sticky:true});
+  });
+  const items = mode==='contact' ? Object.entries(OB_CONTACT_COLORS)
+    : mode==='board' ? [] : [['Standing Relationship','#0f4c5c'],['Individual Outreach','#7a5bc4'],['Not Contacted',OB_STATUS_COLORS['Not Contacted']],['Letter Sent','#3c50a0'],['Follow-up Needed','#f0c814'],['Meeting / In Discussion','#3cb43c'],['Partner','#1f6e22'],['Not a Fit','#a52d6d']];
+  document.getElementById('obLegend').innerHTML = (mode==='board'
+    ? '<span>Each color block is one board\'s service area — hover a county for the board name</span>'
+    : items.map(([k,c])=>`<span><span class="dot" style="background:${c}"></span>${xe(k)}</span>`).join('')) +
+    '<span><span class="dot" style="background:#fff;border:2px solid #1a2861;box-sizing:border-box"></span>Thrive has staff here</span>';
+}
+
+function renderBoardsKPIs(){
+  const kpi=(lbl,val,sub,cls)=>`<div class="kpi ${cls||''}"><div class="lbl">${lbl}</div><div class="val">${val}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+  const today=goalTodayIso();
+  const st=OHIO_BOARDS.map(b=>obStatus(b.id));
+  const contacted=st.filter(s=>s!=='Not Contacted'&&s!=='Standing Relationship').length;
+  const meetings=st.filter(s=>s==='Meeting Scheduled'||s==='In Discussion').length;
+  const partners=st.filter(s=>s==='Partner'||s==='Standing Relationship').length;
+  const footprint=OHIO_BOARDS.filter(b=>obPresence(b)>0).length;
+  const due=OHIO_BOARDS.filter(b=>{ const t=obTrack(b.id); return t.nextFollowUp && t.nextFollowUp<=today && !['Partner','Not a Fit'].includes(obStatus(b.id)); }).length;
+  document.getElementById('obKpiRow').innerHTML=
+    kpi('Ohio Boards', OHIO_BOARDS.length, '88 counties') +
+    kpi('In Thrive Footprint', footprint, 'boards with Thrive staff') +
+    kpi('Contacted', contacted, 'of '+OHIO_BOARDS.length, contacted?'good':'') +
+    kpi('Meeting / In Discussion', meetings, '', meetings?'good':'') +
+    kpi('Partners / Standing', partners, 'existing relationships', partners?'good':'') +
+    kpi('Follow-ups Due', due, 'today or earlier', due?'warn':'') +
+    kpi('No Email on File', OHIO_BOARDS.filter(b=>!obTrack(b.id).email).length, 'call to get contact info', 'bad') +
+    kpi('Confirm Contact *', OHIO_BOARDS.filter(b=>obStatus(b.id)==='Standing Relationship'&&!obTrack(b.id).contactConfirmed).length, 'standing — Justin to confirm', 'warn');
+}
+function renderBoardsTab(){
+  const sf=document.getElementById('obStatusFilter');
+  if(!sf.options.length) sf.innerHTML='<option value="">All statuses</option>'+OB_STATUSES.map(s=>`<option>${s}</option>`).join('');
+  const ff=document.getElementById('obfStatus');
+  if(!ff.options.length) ff.innerHTML=OB_STATUSES.map(s=>`<option>${s}</option>`).join('');
+  obPopulatePreviewSelect();
+  renderBoardsKPIs();
+  renderBoardsTable();
+}
+function obBccBoards(){
+  return OHIO_BOARDS.filter(b=>{ const t=obTrack(b.id); return t.email && obStatus(b.id)==='Not Contacted'; });
+}
+async function obCopyBcc(){
+  const list=obBccBoards().map(b=>obTrack(b.id).email).join('; ');
+  if(!list){ alert('No boards left to email: every board with an email has already been contacted or is handled individually.'); return; }
+  try{ await navigator.clipboard.writeText(list); alert('Copied '+obBccBoards().length+' addresses for the BCC line.\nOnly boards still marked Not Contacted are included — anyone already emailed, standing, individual, or closed is left out.'); }
+  catch(e){ prompt('Copy these addresses:', list); }
+}
+function obExportCsv(){
+  const esc=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
+  const hdr=['Board','Counties','Website','Thrive Staff','Status','Owner','Contact','Title','Email','Phone','Letter Sent','Next Follow-up','Notes'];
+  const lines=[hdr.map(esc).join(',')].concat(obRows().map(({b,t,status,presence})=>[b.name,b.counties.join('; '),b.web,presence,status,t.owner,t.contactName,t.contactTitle,t.email,t.phone,t.sentDate,t.nextFollowUp,t.notes].map(esc).join(',')));
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([lines.join('\n')],{type:'text/csv'}));
+  a.download='ohio-county-boards-outreach-'+goalTodayIso()+'.csv'; a.click();
+}
+
+// ══════════════════════════════════════════════════════════════════
 // TABS
 // ══════════════════════════════════════════════════════════════════
 function bdShowTab(name){
@@ -2474,15 +2999,18 @@ function bdShowTab(name){
   document.getElementById('tabReferrals').style.display = name==='referrals' ? '' : 'none';
   document.getElementById('tabInsights').style.display = name==='insights' ? '' : 'none';
   document.getElementById('tabDeliverables').style.display = name==='deliverables' ? '' : 'none';
+  document.getElementById('tabBoards').style.display = name==='boards' ? '' : 'none';
   document.getElementById('tabBtnOverview').classList.toggle('active', name==='overview');
   document.getElementById('tabBtnLeads').classList.toggle('active', name==='leads');
   document.getElementById('tabBtnReferrals').classList.toggle('active', name==='referrals');
   document.getElementById('tabBtnInsights').classList.toggle('active', name==='insights');
   document.getElementById('tabBtnDeliverables').classList.toggle('active', name==='deliverables');
+  document.getElementById('tabBtnBoards').classList.toggle('active', name==='boards');
   // Both tabs below depend on live state (leads/referrals, or the range
   // picker), so re-render every time they're opened rather than only at load.
   if(name==='insights') renderInsightsTab();
   if(name==='deliverables') renderDeliverablesTab();
+  if(name==='boards'){ renderBoardsTab(); obInitMap(); if(obMap) setTimeout(()=>obMap.invalidateSize(),50); }
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -2499,6 +3027,7 @@ async function bdLoadData(){
     const leads=parse('bd_leads'); if(leads && Array.isArray(leads)) LEADS=leads;
     const refs=parse('bd_referrals'); if(refs && Array.isArray(refs)) REFERRALS=refs;
     const goals=parse('bd_goals'); if(goals && Array.isArray(goals)) GOALS=goals;
+    const boards=parse('bd_boards'); if(boards && typeof boards==='object') OB_DATA={ tracking:boards.tracking||{}, template:boards.template||null };
   }
   renderGoals();
   await bdLoadSubmissions();
@@ -2507,10 +3036,18 @@ async function bdLoadData(){
   renderReferralsTab();
   renderInsightsTab();
   renderDeliverablesTab();
+  renderBoardsTab();
 }
 function initMap(){
   map=L.map('map',{scrollWheelZoom:false}).setView([40.3,-82.6],7);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{ attribution:'&copy; OpenStreetMap contributors', maxZoom:18 }).addTo(map);
+  // 11/3/26: switched off tile.openstreetmap.org -- OSM's volunteer servers now block
+  // requests that don't meet their tile usage policy (shows 'Access blocked' / 403 on
+  // every tile, especially when the page is opened from a local file with no Referer).
+  // CARTO's light basemap is free for this kind of low-volume use and needs no key.
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{
+    attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    subdomains:'abcd', maxZoom:19
+  }).addTo(map);
   markerLayer=L.layerGroup().addTo(map);
 }
 
