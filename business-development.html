@@ -176,6 +176,8 @@ main{max-width:1440px;margin:0 auto;padding:24px 28px 60px}
 .card{background:var(--paper);border:1px solid var(--rule);border-radius:8px;box-shadow:var(--shadow)}
 #map{height:420px;border-radius:8px;z-index:1;background:#f7f8fb}
 #obMap{background:#f7f8fb}
+.cty-count span{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#fff;color:#1a2861;font:700 11px 'IBM Plex Sans',sans-serif;box-shadow:0 1px 3px rgba(26,40,97,.35)}
+#map{height:520px}
 .map-note{font-size:11px;color:var(--muted);margin:8px 0 0;font-style:italic;padding:0 2px}
 .legend{display:flex;gap:14px;flex-wrap:wrap;padding:10px 16px;border-top:1px solid var(--rule);font-size:11.5px;color:var(--ink-soft)}
 .legend .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:middle}
@@ -421,13 +423,16 @@ textarea.ob-tpl{min-height:340px;font-size:13px;line-height:1.55;width:100%}
 
     <div class="kpi-row" id="kpiRow"></div>
 
-    <div class="sec-hd"><h3>Caseload Capacity by County</h3><span class="hint">bubble size = active providers · color = opportunity tier</span><div class="rule"></div></div>
+    <div class="sec-hd"><h3>Caseload Capacity by County</h3><span class="hint">county color = opportunity tier · number = active Thrive providers · hover or click a county for detail</span><div class="rule"></div></div>
     <div class="card">
       <div id="map"></div>
       <div class="legend">
         <span><span class="dot" style="background:#a52d6d"></span>High opportunity — high utilization, thin coverage, or active "needs peers" signals</span>
         <span><span class="dot" style="background:#a07e0a"></span>Watch — approaching capacity</span>
         <span><span class="dot" style="background:#2d8c30"></span>Stable — room to take on more</span>
+        <span><span class="dot" style="background:#f4dae8"></span>BD lead here, no Thrive staff yet</span>
+        <span><span class="dot" style="background:#e4e7f0;border:1px solid #c5cbe0;box-sizing:border-box"></span>No staff or leads</span>
+        <span style="color:var(--muted)">Combined regions (e.g. Trumbull/Mahoning) shade both counties and show one count</span>
       </div>
     </div>
     <div class="map-note" id="noLocationNote"></div>
@@ -1060,7 +1065,7 @@ let refSortState={key:'org',dir:'asc'};
 let insightsSortState={key:'allTime',dir:'desc'};
 let editingLeadId=null;
 let editingReferralId=null;
-let map=null, markerLayer=null;
+let map=null, markerLayer=null, countyLayer=null, countyLabelLayer=null;
 
 function periodHasField(pd,field){
   if(!pd) return false;
@@ -1509,33 +1514,54 @@ function renderKPIs(rows, all){
     kpi('High-Opportunity Counties', highOpp, needsPeers + ' "needs peers" signal' + (needsPeers===1?'':'s'), highOpp?'bad':'good');
 }
 
+// 11/4/26 redesign: a county map (choropleth) instead of overlapping bubbles. Each
+// Ohio county is filled by its opportunity tier, gray where Thrive has no staff yet,
+// with the active-provider count printed on the county. Region labels from the BD
+// workbook like "Trumbull/Mahoning" are split so both counties light up.
+const OPP_COLORS={High:'#a52d6d',Watch:'#c99a12',Stable:'#2d8c30'};
 function renderMap(rows){
-  if(!map) return;
-  markerLayer.clearLayers();
-  const pts=[];
-  const colorFor={High:'#a52d6d',Watch:'#a07e0a',Stable:'#2d8c30'};
+  if(!map || !countyLayer) return;
+  const byCounty={};
   rows.forEach(row=>{
-    // County-level point: static centroid dict first, else the first resolvable
-    // provider coordinate in that county (so a county missing from the static
-    // dict still shows up rather than silently vanishing from the map).
-    let base=COUNTY_COORDS[(row.county||'').toLowerCase()];
-    if(!base){
-      for(const p of row.providers){ const c=coordsFor(p); if(c){ base=c; break; } }
-    }
-    if(!base) return;
-    const radius = 8 + Math.min(14, row.providers.length*1.6);
-    const m=L.circleMarker(base, { radius, color:'#fff', weight:2, fillColor:colorFor[row.opp], fillOpacity:0.82 });
-    m.bindPopup(`<b>${xe(row.county)}</b><br>${row.providers.length} provider${row.providers.length!==1?'s':''} · ${row.caseload}/${row.capacity} caseload (${fmtPct(row.util)})<br>Opportunity: <b>${row.opp}</b>`);
-    m.addTo(markerLayer);
-    pts.push(base);
+    String(row.county||'').split('/').map(c=>c.trim().toLowerCase().replace(/\s+county$/,'')).filter(Boolean).forEach(c=>{
+      if(!byCounty[c] || row.providers.length>byCounty[c].providers.length) byCounty[c]=row;
+    });
   });
-  if(pts.length) map.fitBounds(pts,{padding:[30,30],maxZoom:9});
-  else map.setView([40.3,-82.6],7);
-
-  const noLoc=rows.filter(row=>!COUNTY_COORDS[(row.county||'').toLowerCase()] && !row.providers.some(p=>coordsFor(p)));
+  countyLabelLayer.clearLayers();
+  const placed=new Set(), labeled=new Set();
+  countyLayer.eachLayer(layer=>{
+    const name=layer.feature.properties.n; const row=byCounty[name.toLowerCase()];
+    layer.unbindTooltip(); layer.unbindPopup(); layer.off('mouseover mouseout');
+    if(row){
+      placed.add(row);
+      const n=row.providers.length;
+      layer.setStyle({ fillColor: n ? (OPP_COLORS[row.opp]||'#8089a8') : '#f4dae8', fillOpacity: n?0.85:1, color:'#ffffff', weight:1.2 });
+      const info=`<b>${xe(name)} County</b>${row.county.includes('/')?` <span style="color:#8089a8">(${xe(row.county)})</span>`:''}<br>`+
+        (n ? `${n} active provider${n!==1?'s':''} · caseload ${row.caseload}/${row.capacity} (${fmtPct(row.util)})<br>Opportunity: <b style="color:${OPP_COLORS[row.opp]||'#1a2861'}">${xe(row.opp||'—')}</b>`
+           : `No Thrive staff yet — open BD lead(s) here`);
+      layer.bindTooltip(info,{sticky:true, direction:'top'});
+      layer.bindPopup(info+`<br><a href="#" onclick="bdJumpToCounty('${xe(row.county).replace(/'/g,"\\'")}');return false;">Show in County Detail ↓</a>`);
+      layer.on('mouseover',()=>layer.setStyle({weight:2.5,color:'#1a2861'})).on('mouseout',()=>layer.setStyle({weight:1.2,color:'#ffffff'}));
+      if(n && !labeled.has(row)){
+        labeled.add(row); // a combined region (e.g. Trumbull/Mahoning) gets one number, on its first county
+        const c=layer.getBounds().getCenter();
+        L.marker(c,{interactive:false, icon:L.divIcon({className:'cty-count', html:`<span>${n}</span>`, iconSize:[24,24], iconAnchor:[12,12]})}).addTo(countyLabelLayer);
+      }
+    } else {
+      layer.setStyle({ fillColor:'#e4e7f0', fillOpacity:1, color:'#ffffff', weight:1 });
+      layer.bindTooltip(`<b>${xe(name)} County</b><br><span style="color:#8089a8">No Thrive staff or leads</span>`,{sticky:true, direction:'top'});
+    }
+  });
+  const noLoc=rows.filter(r=>!placed.has(r));
   document.getElementById('noLocationNote').textContent = noLoc.length
-    ? `${noLoc.length} count${noLoc.length!==1?'ies':'y'} could not be placed on the map (no resolvable city/county/zip): ${noLoc.map(r=>r.county).join(', ')}`
+    ? `Not on the map (no Ohio county name to match): ${noLoc.map(r=>r.county).join(', ')}`
     : '';
+}
+function bdJumpToCounty(county){
+  map.closePopup();
+  const rows=[...document.querySelectorAll('tr.county-row')];
+  const tr=rows.find(r=>(r.cells[0]?.textContent||'').trim().toLowerCase().startsWith(String(county).toLowerCase()));
+  if(tr){ tr.scrollIntoView({behavior:'smooth',block:'center'}); tr.style.transition='background .6s'; tr.style.background='#fbf0c4'; setTimeout(()=>tr.style.background='',1600); }
 }
 
 function signalChips(row){
@@ -3038,18 +3064,18 @@ async function bdLoadData(){
   renderBoardsTab();
 }
 function initMap(){
-  map=L.map('map',{scrollWheelZoom:false}).setView([40.3,-82.6],7);
+  map=L.map('map',{scrollWheelZoom:false, zoomSnap:0.25}).setView([40.3,-82.6],7);
   // 11/4/26: no outside map-tile service at all. OpenStreetMap started blocking us
   // ("Access blocked") and CARTO then started requiring an API key ("API KEY
   // REQUIRED"). Free tile services keep changing their rules, so the base map is now
   // Ohio's 88 county outlines drawn from data embedded in this file (OHIO_COUNTIES_GEO,
   // public-domain US Census boundaries) -- nothing external to break again.
   map.attributionControl.addAttribution('County lines: US Census');
-  L.geoJSON(OHIO_COUNTIES_GEO,{
-    interactive:true,
-    style:{ fillColor:'#eef0f7', fillOpacity:1, color:'#c5cbe0', weight:1 },
-    onEachFeature:(f,layer)=>layer.bindTooltip(f.properties.n+' County',{sticky:true, direction:'top', opacity:.85})
+  countyLayer=L.geoJSON(OHIO_COUNTIES_GEO,{
+    style:{ fillColor:'#e4e7f0', fillOpacity:1, color:'#ffffff', weight:1 }
   }).addTo(map);
+  countyLabelLayer=L.layerGroup().addTo(map);
+  map.fitBounds(countyLayer.getBounds(),{padding:[12,12]});
   markerLayer=L.layerGroup().addTo(map);
 }
 
