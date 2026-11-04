@@ -174,7 +174,8 @@ main{max-width:1440px;margin:0 auto;padding:24px 28px 60px}
 .kpi .sub{font-size:10px;color:var(--muted);margin-top:4px;font-family:'IBM Plex Mono',monospace}
 
 .card{background:var(--paper);border:1px solid var(--rule);border-radius:8px;box-shadow:var(--shadow)}
-#map{height:420px;border-radius:8px;z-index:1}
+#map{height:420px;border-radius:8px;z-index:1;background:#f7f8fb}
+#obMap{background:#f7f8fb}
 .map-note{font-size:11px;color:var(--muted);margin:8px 0 0;font-style:italic;padding:0 2px}
 .legend{display:flex;gap:14px;flex-wrap:wrap;padding:10px 16px;border-top:1px solid var(--rule);font-size:11.5px;color:var(--ink-soft)}
 .legend .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:middle}
@@ -2914,10 +2915,8 @@ function obBoardColor(b){ const i=OHIO_BOARDS.slice().sort((x,y)=>x.counties[0].
 function obInitMap(){
   if(obMap || typeof L==='undefined') return;
   obMap=L.map('obMap',{scrollWheelZoom:false, zoomSnap:0.25}).setView([40.25,-82.7],7);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png',{
-    attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a> · county lines: US Census',
-    subdomains:'abcd', maxZoom:12
-  }).addTo(obMap);
+  // 11/4/26: no outside map tiles -- the county outlines below ARE the map (see initMap).
+  obMap.attributionControl.addAttribution('County lines: US Census');
   obGeoLayer=L.geoJSON(OHIO_COUNTIES_GEO,{
     onEachFeature:(f,layer)=>{ layer.on('click',()=>{ const b=obBoardForCounty(f.properties.n); if(b) obEdit(b.id); }); }
   }).addTo(obMap);
@@ -3040,13 +3039,16 @@ async function bdLoadData(){
 }
 function initMap(){
   map=L.map('map',{scrollWheelZoom:false}).setView([40.3,-82.6],7);
-  // 11/3/26: switched off tile.openstreetmap.org -- OSM's volunteer servers now block
-  // requests that don't meet their tile usage policy (shows 'Access blocked' / 403 on
-  // every tile, especially when the page is opened from a local file with no Referer).
-  // CARTO's light basemap is free for this kind of low-volume use and needs no key.
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{
-    attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-    subdomains:'abcd', maxZoom:19
+  // 11/4/26: no outside map-tile service at all. OpenStreetMap started blocking us
+  // ("Access blocked") and CARTO then started requiring an API key ("API KEY
+  // REQUIRED"). Free tile services keep changing their rules, so the base map is now
+  // Ohio's 88 county outlines drawn from data embedded in this file (OHIO_COUNTIES_GEO,
+  // public-domain US Census boundaries) -- nothing external to break again.
+  map.attributionControl.addAttribution('County lines: US Census');
+  L.geoJSON(OHIO_COUNTIES_GEO,{
+    interactive:true,
+    style:{ fillColor:'#eef0f7', fillOpacity:1, color:'#c5cbe0', weight:1 },
+    onEachFeature:(f,layer)=>layer.bindTooltip(f.properties.n+' County',{sticky:true, direction:'top', opacity:.85})
   }).addTo(map);
   markerLayer=L.layerGroup().addTo(map);
 }
