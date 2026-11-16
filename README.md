@@ -1,6 +1,6 @@
 # Thrive Business Development
 
-*Updated 11/9/26.*
+*Updated 11/13/26.*
 
 The BD team's hub: Goals & Priorities, county caseload capacity, the leads pipeline, the Shared Leads inbox, County Boards outreach, the newsletter contact list, Klip referral-source trends, and BD deliverables.
 
@@ -12,6 +12,7 @@ The BD team's hub: Goals & Priorities, county caseload capacity, the leads pipel
 - `business-development.html`: the dashboard
 - `connect.html`: the **public** "Connect with Thrive" lead form (the only page here meant for people outside Thrive). Share it as `connect.html?src=<tag>` so each contact shows where it came from. The board overview deck's QR code points to `?src=adamhs-deck`.
 - `bd_contacts.sql`: run once in Supabase before the Contacts tab or the public form will work.
+- `Klip Insights Move.sql`: run once in Supabase (11/13/26). It puts the Klip referral snapshot into appdata `bd_klip_insights`, so the Referral Insights tab has data.
 
 ## Tabs
 
@@ -25,19 +26,21 @@ The BD team's hub: Goals & Priorities, county caseload capacity, the leads pipel
   - **Sync from Leads & County Boards:** copies every lead/board contact with an email into the list as an existing relationship. Re-runnable; existing emails are skipped.
 - **County Boards:** all 49 Ohio ADAMH/MHRS boards with outreach tracking and the intro-letter template (key `bd_boards`).
 - **Referral Volume:** hidden since 9/10/26. Bulk CSV import for `bd_referrals` lives in Data Hub.
-- **Referral Insights:** a read-only Klip referral-source snapshot. It's built into the file and frozen as of `KLIP_SNAPSHOT_DATE` (9/1/26), so it isn't live.
+- **Referral Insights:** a read-only Klip referral-source snapshot (9/1/26). Since 11/13/26 it loads from appdata `bd_klip_insights` (`{snapshotDate, rows}`) after sign-in instead of being built into this publicly served file. If that row is missing, the tab shows "—" and names the source. To refresh it, replace that one row with a newer export.
 - **Deliverables:** a read-only rollup over Leads for BD accountability.
 
 ## Sign-in
 
 Supabase Auth plus the shared `reviewers` table. Only `role = 'org_wide'` gets in, and every org_wide account can both view and edit. Nothing loads before sign-in. Requests send the user's session token, not the anon key.
 
+Standard sign-in card, and the shared account menu (`thrive-hub/shared/thrive-account-menu.js`) in the top bar. Signing out reloads the page, so nothing is left on screen.
+
 ## Data
 
 The page uses one shared Supabase project (`fussjixekyhwuromauff`):
 
-- **Reads from `appdata`:** only these keys: `staff`, `pm_overrides`, `pd`, `bd_leads`, `bd_referrals`, `bd_goals`. They refresh every 60 seconds.
-- **Writes to `appdata`:** `bd_leads`, `bd_referrals`, `bd_goals`, using the upsert-with-`on_conflict=key` pattern.
+- **Reads from `appdata`:** only these keys: `staff`, `pm_overrides`, `pd`, `bd_leads`, `bd_referrals`, `bd_goals`, `bd_boards`, `bd_klip_insights`. They refresh every 60 seconds.
+- **Writes to `appdata`:** `bd_leads`, `bd_referrals`, `bd_goals`, `bd_boards`, using the upsert-with-`on_conflict=key` pattern.
 - **Reads and updates `bd_lead_submissions`:** a real table with RLS. Anyone signed in can insert rows and read their own; org_wide can read and update every row.
 - **Reads and updates `bd_contacts`:** a real table with RLS. The public (anon) can only **insert** a pending web-form row and can't read anything; org_wide can read, insert and update. No deletes, so opted-out rows keep those emails off future exports.
 - **No client-level data:** leads and contacts are organizations and business contacts. The public form tells people not to include anyone's name or health details.
@@ -53,6 +56,6 @@ Render Static Site connected to this repo. Leave the build command empty, set th
 
 - `bd_leads` is saved as a single array. If two people edit leads at the same moment, the last save wins. That's fine for one BD lead. Move it to a real table if the team grows.
 - Organization matching (Leads ↔ Klip ↔ inbox) uses `orgNamesMatch()`/`normOrgName()`, which compares normalized names word by word. There's no shared Organization table yet.
-- The `PROVIDER_MAP_DATA` seed holds no notes or hire dates (stripped 10/29/26, because this file is publicly served). Overview's note signals come from the live `pm_overrides` notes and the roster note field.
-
+- Nothing about staff is built into this file (11/13/26). The old `PROVIDER_MAP_DATA` seed is empty; staff city/county/zip come from the live roster and `pm_overrides` (filled by the 11/11 Roster Backfill). The one-time `LEADS_SEED`/`REFERRALS_SEED` lists are removed too, since `bd_leads` is live.
+- Still built in: `MGR` (manager names and programs) and `OHIO_BOARDS` (the public county-board roster).
 
